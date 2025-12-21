@@ -167,11 +167,19 @@ export async function fetchCoreSignalJobs(params: {
         });
 
         if (!collectResponse.ok) {
-          console.error(`Failed to collect job ${jobId}`);
+          console.error(`Failed to collect job ${jobId}: ${collectResponse.status}`);
           return null;
         }
 
-        return await collectResponse.json() as CoreSignalJobDetail;
+        const jobData = await collectResponse.json() as CoreSignalJobDetail;
+        
+        // Check if response contains error (e.g., insufficient credits)
+        if ((jobData as any).detail) {
+          console.error(`API error for job ${jobId}: ${(jobData as any).detail}`);
+          return null;
+        }
+        
+        return jobData;
       } catch (err) {
         console.error(`Error collecting job ${jobId}:`, err);
         return null;
@@ -186,8 +194,15 @@ export async function fetchCoreSignalJobs(params: {
       .filter((job): job is CoreSignalJobDetail => {
         if (job === null) return false;
         
-        // If activeOnly is enabled, only include jobs with at least one active source
-        if (activeOnly && job.job_sources && job.job_sources.length > 0) {
+        // If activeOnly is enabled, check for active sources
+        if (activeOnly) {
+          // If job_sources data is missing or empty, exclude the job (data quality issue)
+          if (!job.job_sources || job.job_sources.length === 0) {
+            console.log(`Filtering out job without source data: ${job.title || job.id}`);
+            return false;
+          }
+          
+          // Only include jobs with at least one active source
           const hasActiveSource = job.job_sources.some(source => source.status === "active");
           if (!hasActiveSource) {
             console.log(`Filtering out stale job: ${job.title} (all sources inactive)`);
