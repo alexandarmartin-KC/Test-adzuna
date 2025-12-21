@@ -153,8 +153,9 @@ export async function fetchCoreSignalJobs(params: {
       return [];
     }
 
-    // Step 2: Collect full details for each job ID (limit to first 10 to avoid rate limits)
-    const limitedIds = jobIds.slice(0, Math.min(10, resultsPerPage));
+    // Step 2: Collect full details for each job ID
+    // Fetch more than needed since we'll filter out stale jobs (those with all inactive sources)
+    const limitedIds = jobIds.slice(0, Math.min(30, resultsPerPage * 3));
     const jobPromises = limitedIds.map(async (jobId) => {
       try {
         const collectResponse = await fetch(`${collectUrl}/${jobId}`, {
@@ -180,27 +181,46 @@ export async function fetchCoreSignalJobs(params: {
     const jobDetails = await Promise.all(jobPromises);
 
     // Map CoreSignal response to normalized format
+    // Filter out jobs where ALL sources are inactive (stale jobs)
     const jobs: NormalizedJob[] = jobDetails
-      .filter((job): job is CoreSignalJobDetail => job !== null)
-      .map((job) => ({
-        id: job.id?.toString() || Math.random().toString(36).substr(2, 9),
-        title: job.title || "Untitled Position",
-        company: job.company_name || "Unknown Company",
-        location: job.city || job.location || "Location not specified",
-        country: job.country || country.toUpperCase(),
-        description: job.description || "",
-        url: job.external_url || job.application_url || job.url || "",
-        externalUrl: job.external_url,
-        createdAt: job.created_at || job.date_posted,
-        updatedAt: job.updated_at,
-        isActive: job.job_id_expired === 0 && job.status === 1,
-        employmentType: job.employment_type,
-        department: job.department,
-        seniority: job.seniority,
-        salaryMin: job.salary?.[0]?.min_amount,
-        salaryMax: job.salary?.[0]?.max_amount,
-        sourcesCount: job.job_sources?.length || 1,
-      }));
+      .filter((job): job is CoreSignalJobDetail => {
+        if (job === null) return false;
+        
+        // If activeOnly is enabled, only include jobs with at least one active source
+        if (activeOnly && job.job_sources && job.job_sources.length > 0) {
+          const hasActiveSource = job.job_sources.some(source => source.status === "active");
+          if (!hasActiveSource) {
+            console.log(`Filtering out stale job: ${job.title} (all sources inactive)`);
+            return false;
+          }
+        }
+        
+        return true;
+      })
+      .map((job) => {
+        // Check if job has at least one active source
+        const hasActiveSource = job.job_sources?.some(source => source.status === "active") ?? false;
+        
+        return {
+          id: job.id?.toString() || Math.random().toString(36).substr(2, 9),
+          title: job.title || "Untitled Position",
+          company: job.company_name || "Unknown Company",
+          location: job.city || job.location || "Location not specified",
+          country: job.country || country.toUpperCase(),
+          description: job.description || "",
+          url: job.external_url || job.application_url || job.url || "",
+          externalUrl: job.external_url,
+          createdAt: job.created_at || job.date_posted,
+          updatedAt: job.updated_at,
+          isActive: job.job_id_expired === 0 && hasActiveSource,
+          employmentType: job.employment_type,
+          department: job.department,
+          seniority: job.seniority,
+          salaryMin: job.salary?.[0]?.min_amount,
+          salaryMax: job.salary?.[0]?.max_amount,
+          sourcesCount: job.job_sources?.filter(s => s.status === "active").length || 0,
+        };
+      });
 
     // Deduplicate by external_url (company career page URL) if available
     const uniqueJobs = jobs.reduce((acc, job) => {
