@@ -55,13 +55,10 @@ export async function fetchCoreSignalJobs(params: {
 
   // CoreSignal API configuration
   const apiKey = "KecMYsVhfFRcKfaIepAVwUTkN6dJyCH8";
-  const baseUrl = "https://api.coresignal.com/cdapi/v1/linkedin/job/search/filter";
+  const baseUrl = "https://api.coresignal.com/cdapi/v1/linkedin/job/collect";
 
   // Build CoreSignal API request body
-  const requestBody: any = {
-    page: page - 1, // CoreSignal uses 0-based pagination
-    page_size: resultsPerPage,
-  };
+  const requestBody: any = {};
 
   // Add filters
   if (what) {
@@ -69,9 +66,6 @@ export async function fetchCoreSignalJobs(params: {
   }
   if (where) {
     requestBody.location = where;
-  }
-  if (country) {
-    requestBody.country = country.toUpperCase();
   }
 
   try {
