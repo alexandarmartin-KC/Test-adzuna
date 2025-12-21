@@ -31,9 +31,10 @@ export default function HomePage() {
   const [jobs, setJobs] = useState<NormalizedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [country, setCountry] = useState("united states");
+  const [country, setCountry] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [location, setLocation] = useState("");
+  const [company, setCompany] = useState("");
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -41,9 +42,10 @@ export default function HomePage() {
     
     try {
       const params = new URLSearchParams({
-        country,
+        ...(country && { country }),
         ...(searchTerm && { what: searchTerm }),
         ...(location && { where: location }),
+        ...(company && { company }),
       });
 
       const response = await fetch(`/api/jobs?${params.toString()}`);
@@ -84,9 +86,9 @@ export default function HomePage() {
       {/* Header */}
       <header style={{ backgroundColor: "#0070f3", color: "white", padding: "2rem 0" }}>
         <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "0 1rem" }}>
-          <h1 style={{ margin: 0, fontSize: "2rem" }}>Global Job Search</h1>
+          <h1 style={{ margin: 0, fontSize: "2rem" }}>Nordic Job Search</h1>
           <p style={{ margin: "0.5rem 0 0 0", opacity: 0.9 }}>
-            Find your next opportunity worldwide with CoreSignal
+            Find your next opportunity in Denmark, Sweden, Norway, Finland & Iceland
           </p>
         </div>
       </header>
@@ -106,25 +108,12 @@ export default function HomePage() {
                   onChange={(e) => setCountry(e.target.value)}
                   style={{ width: "100%", padding: "0.5rem", borderRadius: "4px", border: "1px solid #ddd" }}
                 >
-                  <option value="united states">United States</option>
-                  <option value="united kingdom">United Kingdom</option>
-                  <option value="germany">Germany</option>
-                  <option value="france">France</option>
-                  <option value="canada">Canada</option>
-                  <option value="australia">Australia</option>
-                  <option value="austria">Austria</option>
-                  <option value="belgium">Belgium</option>
-                  <option value="brazil">Brazil</option>
-                  <option value="switzerland">Switzerland</option>
-                  <option value="spain">Spain</option>
-                  <option value="india">India</option>
-                  <option value="italy">Italy</option>
-                  <option value="mexico">Mexico</option>
-                  <option value="netherlands">Netherlands</option>
-                  <option value="new zealand">New Zealand</option>
-                  <option value="poland">Poland</option>
-                  <option value="singapore">Singapore</option>
-                  <option value="south africa">South Africa</option>
+                  <option value="">All Nordic Countries</option>
+                  <option value="denmark">🇩🇰 Denmark</option>
+                  <option value="sweden">🇸🇪 Sweden</option>
+                  <option value="norway">🇳🇴 Norway</option>
+                  <option value="finland">🇫🇮 Finland</option>
+                  <option value="iceland">🇮🇸 Iceland</option>
                 </select>
               </div>
               
@@ -143,7 +132,20 @@ export default function HomePage() {
               
               <div>
                 <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 500 }}>
-                  Location
+                  Company
+                </label>
+                <input
+                  type="text"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  placeholder="e.g., Spotify, Ericsson"
+                  style={{ width: "100%", padding: "0.5rem", borderRadius: "4px", border: "1px solid #ddd" }}
+                />
+              </div>
+              
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 500 }}>
+                  Location / City
                 </label>
                 <input
                   type="text"
@@ -262,7 +264,7 @@ export default function HomePage() {
       <footer style={{ backgroundColor: "#333", color: "white", padding: "2rem 0", marginTop: "4rem", textAlign: "center" }}>
         <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "0 1rem" }}>
           <p style={{ margin: 0, opacity: 0.8 }}>
-            Powered by CoreSignal Job Search API
+            Nordic Job Search - Powered by CoreSignal API
           </p>
         </div>
       </footer>

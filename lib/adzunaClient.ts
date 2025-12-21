@@ -39,18 +39,21 @@ interface CoreSignalJobDetail {
  * CoreSignal uses a two-step process:
  * 1. Search for job IDs using Elasticsearch DSL
  * 2. Collect full job details for each ID
+ * Filtered to Nordic countries only (Denmark, Sweden, Norway, Finland, Iceland)
  */
 export async function fetchCoreSignalJobs(params: {
   what?: string;
   where?: string;
   country?: string;
+  company?: string;
   page?: number;
   resultsPerPage?: number;
 }): Promise<NormalizedJob[]> {
   const {
-    what = "developer",
+    what = "",
     where = "",
-    country = "united states",
+    country = "",
+    company = "",
     page = 1,
     resultsPerPage = 20,
   } = params;
@@ -68,13 +71,27 @@ export async function fetchCoreSignalJobs(params: {
   if (where) {
     mustClauses.push({ match: { location: where } });
   }
+  if (company) {
+    mustClauses.push({ match: { company_name: company } });
+  }
+  
+  // Filter by specific Nordic country or all Nordic countries
   if (country) {
     mustClauses.push({ match: { country: country } });
-  }
-
-  // If no filters, search for any jobs
-  if (mustClauses.length === 0) {
-    mustClauses.push({ match_all: {} });
+  } else {
+    // Default to all Nordic countries
+    mustClauses.push({
+      bool: {
+        should: [
+          { match: { country: "denmark" } },
+          { match: { country: "sweden" } },
+          { match: { country: "norway" } },
+          { match: { country: "finland" } },
+          { match: { country: "iceland" } }
+        ],
+        minimum_should_match: 1
+      }
+    });
   }
 
   const searchBody = {
