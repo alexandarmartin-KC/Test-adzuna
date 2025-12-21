@@ -82,9 +82,7 @@ export async function fetchCoreSignalJobs(params: {
       bool: {
         must: mustClauses
       }
-    },
-    from: (page - 1) * resultsPerPage,
-    size: resultsPerPage
+    }
   };
 
   try {
