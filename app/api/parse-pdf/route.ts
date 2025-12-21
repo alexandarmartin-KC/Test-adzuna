@@ -5,20 +5,18 @@ import { PDFParse } from "pdf-parse";
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/parse-pdf
- * Returns API information
+ * OPTIONS /api/parse-pdf
+ * Handle preflight requests
  */
-export async function GET() {
-  return NextResponse.json({
-    error: "Method not allowed",
-    message: "This endpoint only accepts POST requests with multipart/form-data. Please upload a PDF file.",
-    usage: {
-      method: "POST",
-      endpoint: "/api/parse-pdf",
-      contentType: "multipart/form-data",
-      body: "FormData with 'file' field containing PDF"
-    }
-  }, { status: 405 });
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Allow': 'POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  });
 }
 
 /**

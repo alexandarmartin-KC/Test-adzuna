@@ -13,19 +13,18 @@ export type CVAnalysisResult = {
 };
 
 /**
- * GET /api/cv-analysis
- * Returns API information
+ * OPTIONS /api/cv-analysis
+ * Handle preflight requests
  */
-export async function GET() {
-  return NextResponse.json({
-    error: "Method not allowed",
-    message: "This endpoint only accepts POST requests. Please send CV text in the request body.",
-    usage: {
-      method: "POST",
-      endpoint: "/api/cv-analysis",
-      body: { cvText: "Your CV text here..." }
-    }
-  }, { status: 405 });
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Allow': 'POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  });
 }
 
 /**
