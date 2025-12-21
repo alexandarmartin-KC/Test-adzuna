@@ -55,7 +55,7 @@ export async function fetchCoreSignalJobs(params: {
 
   // CoreSignal API configuration
   const apiKey = "KecMYsVhfFRcKfaIepAVwUTkN6dJyCH8";
-  const baseUrl = "https://api.coresignal.com/cdapi/v1/professional_network/job/search/filter";
+  const baseUrl = "https://api.coresignal.com/cdapi/v1/linkedin/job/search/filter";
 
   // Build CoreSignal API request body
   const requestBody: any = {
