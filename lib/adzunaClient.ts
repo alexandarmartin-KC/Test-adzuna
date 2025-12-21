@@ -95,7 +95,7 @@ export async function fetchCoreSignalJobs(params: {
   }
 
   // Filter for non-expired/active jobs only
-  mustClauses.push({ term: { deleted: false } });
+  mustClauses.push({ term: { "job_id_expired": 0 } });
 
   const searchBody = {
     query: {
