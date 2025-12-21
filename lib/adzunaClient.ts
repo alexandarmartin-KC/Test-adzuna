@@ -42,7 +42,7 @@ interface AdzunaResponse {
  * @returns Array of normalized job listings
  */
 export async function fetchAdzunaJobs(params: {
-  country: "dk" | "se" | "no" | "fi";
+  country: "at" | "au" | "be" | "br" | "ca" | "ch" | "de" | "es" | "fr" | "gb" | "in" | "it" | "mx" | "nl" | "nz" | "pl" | "sg" | "us" | "za";
   what?: string;
   where?: string;
   page?: number;

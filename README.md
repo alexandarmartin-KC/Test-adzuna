@@ -1,10 +1,10 @@
-# Nordic Job Search - Adzuna API Integration
+# Global Job Search - Adzuna API Integration
 
-A Next.js application that fetches and displays job listings from the Nordic region using the Adzuna Job Search API.
+A Next.js application that fetches and displays job listings from 19 countries worldwide using the Adzuna Job Search API.
 
 ## Features
 
-- 🌍 **Nordic Region Support**: Denmark (DK), Sweden (SE), Norway (NO), Finland (FI)
+- 🌍 **Global Coverage**: 19 countries including USA, UK, Germany, France, Canada, Australia, and more
 - 🔍 **Search Functionality**: Filter by job title, keywords, and location
 - 📱 **Responsive Design**: Works on desktop and mobile devices
 - 🚀 **Fast & Modern**: Built with Next.js 14 and TypeScript
@@ -81,10 +81,33 @@ Test-adzuna/
    Navigate to [http://localhost:3000](http://localhost:3000)
 
 3. **Search for jobs**
-   - Select a Nordic country from the dropdown
+   - Select a country from the dropdown (19 countries available)
    - Enter job keywords (e.g., "developer", "engineer")
-   - Enter location (e.g., "Copenhagen", "Stockholm")
+   - Enter location (e.g., "New York", "London", "Berlin")
    - Click "Search Jobs"
+
+## Supported Countries
+
+Adzuna API supports job searches in the following countries:
+- 🇺🇸 United States (us)
+- 🇬🇧 United Kingdom (gb)
+- 🇩🇪 Germany (de)
+- 🇫🇷 France (fr)
+- 🇨🇦 Canada (ca)
+- 🇦🇺 Australia (au)
+- 🇦🇹 Austria (at)
+- 🇧🇪 Belgium (be)
+- 🇧🇷 Brazil (br)
+- 🇨🇭 Switzerland (ch)
+- 🇪🇸 Spain (es)
+- 🇮🇳 India (in)
+- 🇮🇹 Italy (it)
+- 🇲🇽 Mexico (mx)
+- 🇳🇱 Netherlands (nl)
+- 🇳🇿 New Zealand (nz)
+- 🇵🇱 Poland (pl)
+- 🇸🇬 Singapore (sg)
+- 🇿🇦 South Africa (za)
 
 ## API Documentation
 
@@ -93,14 +116,14 @@ Test-adzuna/
 Fetches job listings from the Adzuna API.
 
 **Query Parameters:**
-- `country` (string, optional): Country code - `dk`, `se`, `no`, or `fi`. Default: `dk`
+- `country` (string, optional): Country code - see supported countries list above. Default: `us`
 - `what` (string, optional): Job title or keywords
 - `where` (string, optional): Location name
 - `page` (number, optional): Page number for pagination. Default: `1`
 
 **Example Request:**
 ```bash
-curl "http://localhost:3000/api/jobs?country=dk&what=developer&where=Copenhagen&page=1"
+curl "http://localhost:3000/api/jobs?country=us&what=developer&where=New York&page=1"
 ```
 
 **Response:**
@@ -206,7 +229,7 @@ This MVP is designed to be expanded with:
 
 ### No jobs returned
 - Verify your API credentials are correct
-- Check that the country code is valid (`dk`, `se`, `no`, or `fi`)
+- Check that you're using a supported country code
 - Try a broader search with fewer filters
 
 ### API rate limits
@@ -223,4 +246,4 @@ This is a private project. For questions or suggestions, please contact the repo
 
 ---
 
-**Built with ❤️ for the Nordic job market**
+**Built with ❤️ for the global job market**

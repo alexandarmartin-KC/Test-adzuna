@@ -4,15 +4,15 @@ import { fetchAdzunaJobs } from "@/lib/adzunaClient";
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
 
-// Supported Nordic countries
-const VALID_COUNTRIES = ["dk", "se", "no", "fi"] as const;
+// Supported countries by Adzuna API
+const VALID_COUNTRIES = ["at", "au", "be", "br", "ca", "ch", "de", "es", "fr", "gb", "in", "it", "mx", "nl", "nz", "pl", "sg", "us", "za"] as const;
 type ValidCountry = typeof VALID_COUNTRIES[number];
 
 /**
  * GET /api/jobs
  * Fetch job listings from Adzuna API
  * Query parameters:
- * - country: dk | se | no | fi (default: dk)
+ * - country: at|au|be|br|ca|ch|de|es|fr|gb|in|it|mx|nl|nz|pl|sg|us|za (default: us)
  * - what: search keywords (optional)
  * - where: location (optional)
  * - page: page number (default: 1)
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   try {
     // Parse query parameters
     const searchParams = request.nextUrl.searchParams;
-    const country = searchParams.get("country") || "dk";
+    const country = searchParams.get("country") || "us";
     const what = searchParams.get("what") || undefined;
     const where = searchParams.get("where") || undefined;
     const pageParam = searchParams.get("page");

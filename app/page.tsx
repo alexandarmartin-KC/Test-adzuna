@@ -31,7 +31,7 @@ export default function HomePage() {
   const [jobs, setJobs] = useState<NormalizedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [country, setCountry] = useState("dk");
+  const [country, setCountry] = useState("us");
   const [searchTerm, setSearchTerm] = useState("");
   const [location, setLocation] = useState("");
 
@@ -84,9 +84,9 @@ export default function HomePage() {
       {/* Header */}
       <header style={{ backgroundColor: "#0070f3", color: "white", padding: "2rem 0" }}>
         <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "0 1rem" }}>
-          <h1 style={{ margin: 0, fontSize: "2rem" }}>Nordic Job Search</h1>
+          <h1 style={{ margin: 0, fontSize: "2rem" }}>Global Job Search</h1>
           <p style={{ margin: "0.5rem 0 0 0", opacity: 0.9 }}>
-            Find your next opportunity in Denmark, Sweden, Norway, or Finland
+            Find your next opportunity worldwide with Adzuna
           </p>
         </div>
       </header>
@@ -106,10 +106,25 @@ export default function HomePage() {
                   onChange={(e) => setCountry(e.target.value)}
                   style={{ width: "100%", padding: "0.5rem", borderRadius: "4px", border: "1px solid #ddd" }}
                 >
-                  <option value="dk">Denmark (DK)</option>
-                  <option value="se">Sweden (SE)</option>
-                  <option value="no">Norway (NO)</option>
-                  <option value="fi">Finland (FI)</option>
+                  <option value="us">United States (US)</option>
+                  <option value="gb">United Kingdom (GB)</option>
+                  <option value="de">Germany (DE)</option>
+                  <option value="fr">France (FR)</option>
+                  <option value="ca">Canada (CA)</option>
+                  <option value="au">Australia (AU)</option>
+                  <option value="at">Austria (AT)</option>
+                  <option value="be">Belgium (BE)</option>
+                  <option value="br">Brazil (BR)</option>
+                  <option value="ch">Switzerland (CH)</option>
+                  <option value="es">Spain (ES)</option>
+                  <option value="in">India (IN)</option>
+                  <option value="it">Italy (IT)</option>
+                  <option value="mx">Mexico (MX)</option>
+                  <option value="nl">Netherlands (NL)</option>
+                  <option value="nz">New Zealand (NZ)</option>
+                  <option value="pl">Poland (PL)</option>
+                  <option value="sg">Singapore (SG)</option>
+                  <option value="za">South Africa (ZA)</option>
                 </select>
               </div>
               

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Nordic Job Search - Adzuna",
-  description: "Find jobs in Denmark, Sweden, Norway, and Finland",
+  title: "Global Job Search - Adzuna",
+  description: "Find jobs worldwide in 19 countries with Adzuna",
 };
 
 export default function RootLayout({
