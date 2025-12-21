@@ -8,11 +8,16 @@ export type NormalizedJob = {
   country: string;
   description: string;
   url: string;
+  externalUrl?: string; // Direct link to company career page
   createdAt?: string;
-  lastVerifiedAt?: string;
+  updatedAt?: string;
   isActive?: boolean;
+  employmentType?: string;
+  department?: string;
+  seniority?: string;
   salaryMin?: number;
   salaryMax?: number;
+  sourcesCount?: number; // Number of sources this job was found in
 };
 
 // CoreSignal API response types
@@ -26,10 +31,23 @@ interface CoreSignalJobDetail {
   description?: string;
   application_url?: string;
   url?: string;
-  posted_at?: string;
-  first_verified_at?: string;
-  last_verified_at?: string;
+  external_url?: string; // Direct link to company career page
+  created_at?: string;
+  updated_at?: string;
+  date_posted?: string;
+  valid_through?: string;
   job_id_expired?: number; // 0 = active, 1 = expired/inactive
+  status?: number;
+  employment_type?: string;
+  department?: string;
+  seniority?: string;
+  job_sources?: Array<{
+    source: string;
+    source_id: string;
+    url: string;
+    status: string;
+    updated_at: string;
+  }>;
   salary?: Array<{
     min_amount?: number;
     max_amount?: number;
@@ -171,15 +189,35 @@ export async function fetchCoreSignalJobs(params: {
         location: job.city || job.location || "Location not specified",
         country: job.country || country.toUpperCase(),
         description: job.description || "",
-        url: job.application_url || job.url || "",
-        createdAt: job.posted_at || job.first_verified_at,
-        lastVerifiedAt: job.last_verified_at,
-        isActive: job.job_id_expired === 0,
+        url: job.external_url || job.application_url || job.url || "",
+        externalUrl: job.external_url,
+        createdAt: job.created_at || job.date_posted,
+        updatedAt: job.updated_at,
+        isActive: job.job_id_expired === 0 && job.status === 1,
+        employmentType: job.employment_type,
+        department: job.department,
+        seniority: job.seniority,
         salaryMin: job.salary?.[0]?.min_amount,
         salaryMax: job.salary?.[0]?.max_amount,
+        sourcesCount: job.job_sources?.length || 1,
       }));
 
-    return jobs;
+    // Deduplicate by external_url (company career page URL) if available
+    const uniqueJobs = jobs.reduce((acc, job) => {
+      const key = job.externalUrl || `${job.title}-${job.company}-${job.location}`;
+      if (!acc.has(key)) {
+        acc.set(key, job);
+      } else {
+        // Keep the most recently updated version
+        const existing = acc.get(key)!;
+        if (job.updatedAt && existing.updatedAt && job.updatedAt > existing.updatedAt) {
+          acc.set(key, job);
+        }
+      }
+      return acc;
+    }, new Map<string, NormalizedJob>());
+
+    return Array.from(uniqueJobs.values());
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to fetch jobs from CoreSignal: ${error.message}`);

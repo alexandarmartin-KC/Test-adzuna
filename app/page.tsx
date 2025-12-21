@@ -10,11 +10,16 @@ type NormalizedJob = {
   country: string;
   description: string;
   url: string;
+  externalUrl?: string;
   createdAt?: string;
-  lastVerifiedAt?: string;
+  updatedAt?: string;
   isActive?: boolean;
+  employmentType?: string;
+  department?: string;
+  seniority?: string;
   salaryMin?: number;
   salaryMax?: number;
+  sourcesCount?: number;
 };
 
 type ApiResponse = {
@@ -261,11 +266,17 @@ export default function HomePage() {
                       <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", color: "#666", fontSize: "0.9rem" }}>
                         <span>🏢 {job.company}</span>
                         <span>📍 {job.location}, {job.country}</span>
+                        {job.employmentType && (
+                          <span>⏱️ {job.employmentType}</span>
+                        )}
+                        {job.department && (
+                          <span>🏷️ {job.department}</span>
+                        )}
                         {job.salaryMin && job.salaryMax && (
                           <span>💰 {job.salaryMin.toLocaleString()} - {job.salaryMax.toLocaleString()}</span>
                         )}
-                        {job.lastVerifiedAt && (
-                          <span>🔄 Last verified: {new Date(job.lastVerifiedAt).toLocaleDateString()}</span>
+                        {job.updatedAt && (
+                          <span>🔄 Updated: {new Date(job.updatedAt).toLocaleDateString()}</span>
                         )}
                       </div>
                     </div>
