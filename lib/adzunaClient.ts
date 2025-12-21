@@ -222,22 +222,48 @@ export async function fetchCoreSignalJobs(params: {
         };
       });
 
-    // Deduplicate by external_url (company career page URL) if available
+    // Deduplicate jobs - same title + company + city is considered duplicate
+    // Also normalize external URLs to catch variations (e.g., /job/169 vs /requisitions/preview/169)
     const uniqueJobs = jobs.reduce((acc, job) => {
-      const key = job.externalUrl || `${job.title}-${job.company}-${job.location}`;
-      if (!acc.has(key)) {
-        acc.set(key, job);
+      // Primary dedup key: title + company (normalized) + location
+      const normalizedCompany = job.company.toLowerCase().replace(/\s*(emea|inc\.?|a\/s|as|ltd\.?|gmbh)\s*/gi, '').trim();
+      const primaryKey = `${job.title.toLowerCase()}-${normalizedCompany}-${job.location.toLowerCase()}`;
+      
+      // Also try to extract job ID from URL for secondary dedup
+      const jobIdMatch = job.externalUrl?.match(/(?:job|requisitions\/preview)\/(\d+)/);
+      const urlJobId = jobIdMatch ? jobIdMatch[1] : null;
+      const secondaryKey = urlJobId ? `url-id-${urlJobId}-${normalizedCompany}` : null;
+      
+      // Check both keys
+      const existingByPrimary = acc.get(primaryKey);
+      const existingBySecondary = secondaryKey ? acc.get(secondaryKey) : null;
+      
+      if (!existingByPrimary && !existingBySecondary) {
+        acc.set(primaryKey, job);
+        if (secondaryKey) acc.set(secondaryKey, job);
       } else {
         // Keep the most recently updated version
-        const existing = acc.get(key)!;
+        const existing = existingByPrimary || existingBySecondary!;
         if (job.updatedAt && existing.updatedAt && job.updatedAt > existing.updatedAt) {
-          acc.set(key, job);
+          acc.set(primaryKey, job);
+          if (secondaryKey) acc.set(secondaryKey, job);
         }
       }
       return acc;
     }, new Map<string, NormalizedJob>());
 
-    return Array.from(uniqueJobs.values());
+    // Extract unique jobs (filter out duplicate key entries)
+    const seen = new Set<string>();
+    const result: NormalizedJob[] = [];
+    for (const job of uniqueJobs.values()) {
+      const jobKey = job.id;
+      if (!seen.has(jobKey)) {
+        seen.add(jobKey);
+        result.push(job);
+      }
+    }
+
+    return result;
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to fetch jobs from CoreSignal: ${error.message}`);
