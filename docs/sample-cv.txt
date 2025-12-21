@@ -1,0 +1,75 @@
+Sarah Johnson
+Senior Software Engineer
+sarah.johnson@example.com | (555) 123-4567 | linkedin.com/in/sarahjohnson
+
+PROFESSIONAL SUMMARY
+Results-driven software engineer with 8+ years of experience in full-stack development. Proven track record of leading technical teams, architecting scalable solutions, and delivering high-quality software products. Strong expertise in modern web technologies, cloud infrastructure, and agile methodologies.
+
+EXPERIENCE
+
+Senior Software Engineer | TechCorp Inc. | San Francisco, CA | 2020 - Present
+• Lead a team of 6 engineers developing a microservices-based e-commerce platform serving 2M+ users
+• Architected and implemented CI/CD pipeline using Jenkins and Docker, reducing deployment time by 70%
+• Mentored 3 junior developers, conducting code reviews and pair programming sessions
+• Collaborated with product managers and designers to define technical requirements and roadmaps
+• Technologies: React, TypeScript, Node.js, PostgreSQL, AWS (EC2, S3, Lambda), Docker, Kubernetes
+
+Software Engineer | StartupHub | Austin, TX | 2017 - 2020
+• Developed RESTful APIs and microservices using Node.js and Express, handling 100K+ daily requests
+• Built responsive web applications using React and Redux, improving page load times by 40%
+• Implemented real-time features using WebSockets for collaborative editing functionality
+• Worked closely with cross-functional teams in an Agile/Scrum environment
+• Participated in on-call rotation and resolved production incidents within SLA
+• Technologies: JavaScript, React, Redux, Node.js, MongoDB, Redis, AWS
+
+Junior Developer | DevSolutions | Remote | 2015 - 2017
+• Developed and maintained web applications using HTML, CSS, JavaScript, and jQuery
+• Assisted in database design and optimization using MySQL
+• Participated in daily stand-ups and sprint planning meetings
+• Fixed bugs and implemented small features across multiple client projects
+• Technologies: PHP, MySQL, JavaScript, jQuery, Bootstrap
+
+EDUCATION
+
+Bachelor of Science in Computer Science
+University of Texas at Austin | 2011 - 2015
+GPA: 3.7/4.0
+Relevant Coursework: Data Structures, Algorithms, Database Systems, Software Engineering
+
+SKILLS
+
+Programming Languages: JavaScript, TypeScript, Python, Java, SQL
+Frontend: React, Redux, Next.js, Vue.js, HTML5, CSS3, Sass, Tailwind CSS
+Backend: Node.js, Express, NestJS, Django, Flask
+Databases: PostgreSQL, MySQL, MongoDB, Redis, DynamoDB
+Cloud & DevOps: AWS (EC2, S3, Lambda, RDS), Docker, Kubernetes, Jenkins, GitHub Actions
+Tools & Methods: Git, Jira, Agile/Scrum, REST APIs, GraphQL, Microservices, TDD
+
+CERTIFICATIONS
+
+• AWS Certified Solutions Architect - Associate (2022)
+• Certified Kubernetes Administrator (CKA) (2021)
+
+PROJECTS
+
+Open Source Contributions
+• Contributor to React ecosystem libraries with 50+ merged PRs
+• Maintained popular npm package with 10K+ weekly downloads
+• Active participant in Stack Overflow community (15K+ reputation)
+
+Personal Project: TaskMaster Pro
+• Built a full-stack task management application using MERN stack
+• Implemented user authentication, real-time updates, and data visualization
+• Deployed on AWS with automated CI/CD pipeline
+
+ACHIEVEMENTS
+
+• Reduced application latency by 60% through database query optimization and caching strategies
+• Led successful migration of monolithic application to microservices architecture
+• Presented technical talk at local JavaScript meetup on "Building Scalable React Applications"
+• Improved team code quality by establishing code review standards and automated testing practices
+
+LANGUAGES
+
+• English (Native)
+• Spanish (Intermediate)
