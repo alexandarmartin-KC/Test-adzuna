@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import pdf from "pdf-parse/lib/pdf-parse.js";
+import { PDFParse } from "pdf-parse";
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
@@ -39,11 +39,12 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Parse PDF
-    const data = await pdf(buffer);
+    // Parse PDF using PDFParse
+    const parser = new PDFParse(buffer);
+    const result = await parser.getText();
 
     // Extract text
-    const text = data.text;
+    const text = result.text;
 
     if (!text || text.trim().length === 0) {
       return NextResponse.json(
@@ -55,11 +56,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Clean up
+    await parser.destroy();
+
     return NextResponse.json({
       success: true,
       text: text.trim(),
-      pages: data.numpages,
-      info: data.info,
+      pages: result.pages.length,
     });
 
   } catch (error: any) {
