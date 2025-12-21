@@ -11,6 +11,8 @@ type NormalizedJob = {
   description: string;
   url: string;
   createdAt?: string;
+  lastVerifiedAt?: string;
+  isActive?: boolean;
   salaryMin?: number;
   salaryMax?: number;
 };
@@ -35,6 +37,7 @@ export default function HomePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [location, setLocation] = useState("");
   const [company, setCompany] = useState("");
+  const [activeOnly, setActiveOnly] = useState(true);
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -46,6 +49,7 @@ export default function HomePage() {
         ...(searchTerm && { what: searchTerm }),
         ...(location && { where: location }),
         ...(company && { company }),
+        activeOnly: activeOnly.toString(),
       });
 
       const response = await fetch(`/api/jobs?${params.toString()}`);
@@ -157,6 +161,21 @@ export default function HomePage() {
               </div>
             </div>
             
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={activeOnly}
+                  onChange={(e) => setActiveOnly(e.target.checked)}
+                  style={{ width: "18px", height: "18px", cursor: "pointer" }}
+                />
+                <span style={{ fontWeight: 500 }}>Active Jobs Only</span>
+              </label>
+              <span style={{ color: "#666", fontSize: "0.85rem" }}>
+                (Uncheck to include expired/inactive job postings)
+              </span>
+            </div>
+            
             <button
               type="submit"
               style={{
@@ -220,14 +239,33 @@ export default function HomePage() {
                     }}
                   >
                     <div style={{ marginBottom: "1rem" }}>
-                      <h3 style={{ margin: "0 0 0.5rem 0", color: "#0070f3", fontSize: "1.5rem" }}>
-                        {job.title}
-                      </h3>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
+                        <h3 style={{ margin: "0", color: "#0070f3", fontSize: "1.5rem" }}>
+                          {job.title}
+                        </h3>
+                        {job.isActive !== undefined && (
+                          <span
+                            style={{
+                              padding: "0.25rem 0.5rem",
+                              borderRadius: "4px",
+                              fontSize: "0.75rem",
+                              fontWeight: 600,
+                              backgroundColor: job.isActive ? "#e6f7e6" : "#fee",
+                              color: job.isActive ? "#2e7d32" : "#c33",
+                            }}
+                          >
+                            {job.isActive ? "✓ Active" : "✗ Expired"}
+                          </span>
+                        )}
+                      </div>
                       <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", color: "#666", fontSize: "0.9rem" }}>
                         <span>🏢 {job.company}</span>
                         <span>📍 {job.location}, {job.country}</span>
                         {job.salaryMin && job.salaryMax && (
                           <span>💰 {job.salaryMin.toLocaleString()} - {job.salaryMax.toLocaleString()}</span>
+                        )}
+                        {job.lastVerifiedAt && (
+                          <span>🔄 Last verified: {new Date(job.lastVerifiedAt).toLocaleDateString()}</span>
                         )}
                       </div>
                     </div>

@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
     const company = searchParams.get("company") || undefined;
     const pageParam = searchParams.get("page");
     const page = pageParam ? parseInt(pageParam, 10) : 1;
+    const activeOnly = searchParams.get("activeOnly") !== "false"; // Default to true (only active jobs)
 
     // Validate page parameter
     if (isNaN(page) || page < 1) {
@@ -44,6 +45,7 @@ export async function GET(request: NextRequest) {
       company,
       page,
       resultsPerPage: 20,
+      activeOnly,
     });
 
     // Return successful response

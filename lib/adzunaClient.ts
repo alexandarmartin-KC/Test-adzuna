@@ -9,6 +9,8 @@ export type NormalizedJob = {
   description: string;
   url: string;
   createdAt?: string;
+  lastVerifiedAt?: string;
+  isActive?: boolean;
   salaryMin?: number;
   salaryMax?: number;
 };
@@ -27,6 +29,7 @@ interface CoreSignalJobDetail {
   posted_at?: string;
   first_verified_at?: string;
   last_verified_at?: string;
+  job_id_expired?: number; // 0 = active, 1 = expired/inactive
   salary?: Array<{
     min_amount?: number;
     max_amount?: number;
@@ -48,6 +51,7 @@ export async function fetchCoreSignalJobs(params: {
   company?: string;
   page?: number;
   resultsPerPage?: number;
+  activeOnly?: boolean;
 }): Promise<NormalizedJob[]> {
   const {
     what = "",
@@ -56,6 +60,7 @@ export async function fetchCoreSignalJobs(params: {
     company = "",
     page = 1,
     resultsPerPage = 20,
+    activeOnly = true,
   } = params;
 
   const apiKey = "KecMYsVhfFRcKfaIepAVwUTkN6dJyCH8";
@@ -94,8 +99,10 @@ export async function fetchCoreSignalJobs(params: {
     });
   }
 
-  // Filter for non-expired/active jobs only
-  mustClauses.push({ term: { "job_id_expired": 0 } });
+  // Filter for non-expired/active jobs only (when activeOnly is true)
+  if (activeOnly) {
+    mustClauses.push({ term: { "job_id_expired": 0 } });
+  }
 
   const searchBody = {
     query: {
@@ -166,6 +173,8 @@ export async function fetchCoreSignalJobs(params: {
         description: job.description || "",
         url: job.application_url || job.url || "",
         createdAt: job.posted_at || job.first_verified_at,
+        lastVerifiedAt: job.last_verified_at,
+        isActive: job.job_id_expired === 0,
         salaryMin: job.salary?.[0]?.min_amount,
         salaryMax: job.salary?.[0]?.max_amount,
       }));
