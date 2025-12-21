@@ -43,6 +43,46 @@ export default function HomePage() {
   const [location, setLocation] = useState("");
   const [company, setCompany] = useState("");
   const [activeOnly, setActiveOnly] = useState(true);
+  
+  // Company autocomplete state
+  const [companySuggestions, setCompanySuggestions] = useState<{name: string; jobCount: number}[]>([]);
+  const [showCompanySuggestions, setShowCompanySuggestions] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+
+  // Fetch company suggestions
+  const fetchCompanySuggestions = async (query: string) => {
+    if (query.length < 2) {
+      setCompanySuggestions([]);
+      return;
+    }
+    
+    setLoadingSuggestions(true);
+    try {
+      const params = new URLSearchParams({
+        q: query,
+        ...(country && { country }),
+      });
+      const response = await fetch(`/api/companies?${params.toString()}`);
+      const data = await response.json();
+      setCompanySuggestions(data.companies || []);
+    } catch (err) {
+      setCompanySuggestions([]);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  // Debounce company search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (company) {
+        fetchCompanySuggestions(company);
+      } else {
+        setCompanySuggestions([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [company, country]);
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -139,17 +179,79 @@ export default function HomePage() {
                 />
               </div>
               
-              <div>
+              <div style={{ position: "relative" }}>
                 <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 500 }}>
                   Company
                 </label>
                 <input
                   type="text"
                   value={company}
-                  onChange={(e) => setCompany(e.target.value)}
+                  onChange={(e) => {
+                    setCompany(e.target.value);
+                    setShowCompanySuggestions(true);
+                  }}
+                  onFocus={() => setShowCompanySuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowCompanySuggestions(false), 200)}
                   placeholder="e.g., Spotify, Ericsson"
                   style={{ width: "100%", padding: "0.5rem", borderRadius: "4px", border: "1px solid #ddd" }}
                 />
+                {/* Company Suggestions Dropdown */}
+                {showCompanySuggestions && (companySuggestions.length > 0 || loadingSuggestions) && (
+                  <div style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: 0,
+                    right: 0,
+                    backgroundColor: "white",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                    boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+                    zIndex: 1000,
+                    maxHeight: "200px",
+                    overflowY: "auto",
+                  }}>
+                    {loadingSuggestions ? (
+                      <div style={{ padding: "0.75rem", color: "#666", textAlign: "center" }}>
+                        Searching...
+                      </div>
+                    ) : (
+                      companySuggestions.map((suggestion, index) => (
+                        <div
+                          key={index}
+                          onClick={() => {
+                            setCompany(suggestion.name);
+                            setShowCompanySuggestions(false);
+                          }}
+                          style={{
+                            padding: "0.75rem",
+                            cursor: "pointer",
+                            borderBottom: index < companySuggestions.length - 1 ? "1px solid #eee" : "none",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = "#f5f5f5";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = "white";
+                          }}
+                        >
+                          <span style={{ fontWeight: 500 }}>{suggestion.name}</span>
+                          <span style={{
+                            backgroundColor: "#e3f2fd",
+                            color: "#1976d2",
+                            padding: "0.2rem 0.5rem",
+                            borderRadius: "12px",
+                            fontSize: "0.75rem",
+                          }}>
+                            {suggestion.jobCount} {suggestion.jobCount === 1 ? "job" : "jobs"}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
               
               <div>
