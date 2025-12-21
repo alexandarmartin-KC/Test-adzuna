@@ -53,19 +53,40 @@ export default function CVAnalysisPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // For now, only support text files
-    // In production, you'd want to use a PDF parsing library
-    if (file.type !== "text/plain") {
-      setError("Please upload a text file (.txt). PDF support coming soon!");
-      return;
-    }
+    setError(null);
 
     try {
-      const text = await file.text();
+      let text = "";
+
+      if (file.type === "application/pdf") {
+        // Handle PDF files
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await fetch("/api/parse-pdf", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to parse PDF");
+        }
+
+        text = data.text;
+      } else if (file.type === "text/plain") {
+        // Handle text files
+        text = await file.text();
+      } else {
+        setError("Please upload a PDF (.pdf) or text file (.txt)");
+        return;
+      }
+
       setCvText(text);
       setError(null);
-    } catch (err) {
-      setError("Failed to read file");
+    } catch (err: any) {
+      setError(err.message || "Failed to read file");
     }
   };
 
@@ -86,11 +107,11 @@ export default function CVAnalysisPage() {
             fontWeight: "500",
           }}
         >
-          Upload CV (text file):
+          Upload CV (PDF or text file):
         </label>
         <input
           type="file"
-          accept=".txt"
+          accept=".txt,.pdf"
           onChange={handleFileUpload}
           style={{
             display: "block",
