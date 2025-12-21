@@ -1,10 +1,10 @@
-# Global Job Search - Adzuna API Integration
+# Global Job Search - CoreSignal API Integration
 
-A Next.js application that fetches and displays job listings from 19 countries worldwide using the Adzuna Job Search API.
+A Next.js application that fetches and displays job listings from worldwide using the CoreSignal Job Search API.
 
 ## Features
 
-- 🌍 **Global Coverage**: 19 countries including USA, UK, Germany, France, Canada, Australia, and more
+- 🌍 **Global Coverage**: Job listings from multiple countries worldwide
 - 🔍 **Search Functionality**: Filter by job title, keywords, and location
 - 📱 **Responsive Design**: Works on desktop and mobile devices
 - 🚀 **Fast & Modern**: Built with Next.js 14 and TypeScript
@@ -14,7 +14,7 @@ A Next.js application that fetches and displays job listings from 19 countries w
 
 - **Framework**: Next.js 14 (App Router)
 - **Language**: TypeScript
-- **API**: Adzuna Job Search API
+- **API**: CoreSignal Job Search API
 - **Styling**: Inline styles (minimal, ready for CSS framework)
 
 ## Project Structure
@@ -28,7 +28,7 @@ Test-adzuna/
 │   ├── layout.tsx                # Root layout
 │   └── page.tsx                  # Main page with job listings
 ├── lib/
-│   └── adzunaClient.ts           # Adzuna API client
+│   └── adzunaClient.ts           # CoreSignal API client
 ├── .env.example                  # Environment variables template
 ├── .gitignore
 ├── next.config.js
@@ -40,7 +40,7 @@ Test-adzuna/
 ## Prerequisites
 
 - Node.js 18+ installed
-- Adzuna API credentials (get them at [developer.adzuna.com](https://developer.adzuna.com/))
+- CoreSignal API credentials
 
 ## Installation
 
@@ -57,17 +57,7 @@ Test-adzuna/
 
 3. **Set up environment variables**
    
-   Copy the example environment file:
-   ```bash
-   cp .env.example .env.local
-   ```
-   
-   Edit `.env.local` and add your Adzuna API credentials:
-   ```env
-   ADZUNA_APP_ID=your_app_id_here
-   ADZUNA_API_KEY=your_api_key_here
-   ADZUNA_BASE_URL=https://api.adzuna.com/v1/api
-   ```
+   The CoreSignal API key is already integrated into the application. No additional environment variables are required.
 
 ## Running Locally
 
@@ -92,38 +82,15 @@ Adzuna API supports job searches in the following countries:
 - 🇺🇸 United States (us)
 - 🇬🇧 United Kingdom (gb)
 - 🇩🇪 Germany (de)
-- 🇫🇷 France (fr)
-- 🇨🇦 Canada (ca)
-- 🇦🇺 Australia (au)
-- 🇦🇹 Austria (at)
-- 🇧🇪 Belgium (be)
-- 🇧🇷 Brazil (br)
-- 🇨🇭 Switzerland (ch)
-- 🇪🇸 Spain (es)
-- 🇮🇳 India (in)
-- 🇮🇹 Italy (it)
-- 🇲🇽 Mexico (mx)
-- 🇳🇱 Netherlands (nl)
-- 🇳🇿 New Zealand (nz)
-- 🇵🇱 Poland (pl)
-- 🇸🇬 Singapore (sg)
-- 🇿🇦 South Africa (za)
+   - Enter job keywords (e.g., "developer", "engineer")
+   - Enter location (e.g., "New York", "London", "Berlin")
+   - Click "Search Jobs"
 
 ## API Documentation
 
 ### GET `/api/jobs`
 
-Fetches job listings from the Adzuna API.
-
-**Query Parameters:**
-- `country` (string, optional): Country code - see supported countries list above. Default: `us`
-- `what` (string, optional): Job title or keywords
-- `where` (string, optional): Location name
-- `page` (number, optional): Page number for pagination. Default: `1`
-
-**Example Request:**
-```bash
-curl "http://localhost:3000/api/jobs?country=us&what=developer&where=New York&page=1"
+Fetches job listings from the CoreSignal?country=us&what=developer&where=New York&page=1"
 ```
 
 **Response:**
@@ -183,11 +150,7 @@ curl "http://localhost:3000/api/jobs?country=us&what=developer&where=New York&pa
    vercel
    ```
 
-4. **Add environment variables**
-   ```bash
-   vercel env add ADZUNA_APP_ID
-   vercel env add ADZUNA_API_KEY
-   vercel env add ADZUNA_BASE_URL
+4. Click "Deploy" (no environment variables needed - API key is already integrated) ADZUNA_BASE_URL
    ```
 
 5. **Redeploy with environment variables**
@@ -210,40 +173,26 @@ This MVP is designed to be expanded with:
 - 🏢 **Company/Cultural Data**: Company information and culture insights
 - 🤖 **AI-Based Matching**: Intelligent job recommendations using AI
 - 💾 **Database Integration**: Save favorite jobs and applications
-- 🔐 **Authentication**: User accounts and saved searches
-- 📊 **Analytics**: Track job market trends
+- 🔐 Deploy to production**
+   ```bash
+   vercel --prod
+   ```
 
-## Development Notes
+## Environment Variables
 
-- **No Scraping**: This project uses the official Adzuna API only - no web scraping
+No environment variables are required. The CoreSignal API key is integrated directly into the application.
+- Check that you're using a supported country code
+- Try a broader search with fewer filtersCoreSignal API only - no web scraping
 - **Modular Design**: Easy to extend with new features
 - **Type Safety**: Fully typed with TypeScript
 - **Error Handling**: Comprehensive error handling with user-friendly messages
-- **Security**: API credentials never exposed to the client
+- **Security**: API credentials securely integrated
 
 ## Troubleshooting
 
-### "Missing Adzuna API credentials" error
-- Make sure `.env.local` exists and contains valid credentials
-- Restart the development server after adding environment variables
-
 ### No jobs returned
-- Verify your API credentials are correct
-- Check that you're using a supported country code
 - Try a broader search with fewer filters
+- Check your internet connection
 
 ### API rate limits
-- Adzuna has rate limits on their API
-- Consider implementing caching for production use
-
-## License
-
-MIT
-
-## Contributing
-
-This is a private project. For questions or suggestions, please contact the repository owner.
-
----
-
-**Built with ❤️ for the global job market**
+- CoreSignal

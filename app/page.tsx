@@ -86,7 +86,7 @@ export default function HomePage() {
         <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "0 1rem" }}>
           <h1 style={{ margin: 0, fontSize: "2rem" }}>Global Job Search</h1>
           <p style={{ margin: "0.5rem 0 0 0", opacity: 0.9 }}>
-            Find your next opportunity worldwide with Adzuna
+            Find your next opportunity worldwide with CoreSignal
           </p>
         </div>
       </header>
@@ -262,7 +262,7 @@ export default function HomePage() {
       <footer style={{ backgroundColor: "#333", color: "white", padding: "2rem 0", marginTop: "4rem", textAlign: "center" }}>
         <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "0 1rem" }}>
           <p style={{ margin: 0, opacity: 0.8 }}>
-            Powered by Adzuna Job Search API
+            Powered by CoreSignal Job Search API
           </p>
         </div>
       </footer>

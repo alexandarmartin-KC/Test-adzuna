@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchAdzunaJobs } from "@/lib/adzunaClient";
+import { fetchCoreSignalJobs } from "@/lib/adzunaClient";
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
 
-// Supported countries by Adzuna API
-const VALID_COUNTRIES = ["at", "au", "be", "br", "ca", "ch", "de", "es", "fr", "gb", "in", "it", "mx", "nl", "nz", "pl", "sg", "us", "za"] as const;
-type ValidCountry = typeof VALID_COUNTRIES[number];
-
 /**
  * GET /api/jobs
- * Fetch job listings from Adzuna API
+ * Fetch job listings from CoreSignal API
  * Query parameters:
- * - country: at|au|be|br|ca|ch|de|es|fr|gb|in|it|mx|nl|nz|pl|sg|us|za (default: us)
+ * - country: country code (optional, default: us)
  * - what: search keywords (optional)
  * - where: location (optional)
  * - page: page number (default: 1)
@@ -27,17 +23,6 @@ export async function GET(request: NextRequest) {
     const pageParam = searchParams.get("page");
     const page = pageParam ? parseInt(pageParam, 10) : 1;
 
-    // Validate country parameter
-    if (!VALID_COUNTRIES.includes(country as ValidCountry)) {
-      return NextResponse.json(
-        {
-          error: "Invalid country parameter",
-          message: `Country must be one of: ${VALID_COUNTRIES.join(", ")}`,
-        },
-        { status: 400 }
-      );
-    }
-
     // Validate page parameter
     if (isNaN(page) || page < 1) {
       return NextResponse.json(
@@ -49,9 +34,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch jobs from Adzuna
-    const jobs = await fetchAdzunaJobs({
-      country: country as ValidCountry,
+    // Fetch jobs from CoreSignal
+    const jobs = await fetchCoreSignalJobs({
+      country,
       what,
       where,
       page,
