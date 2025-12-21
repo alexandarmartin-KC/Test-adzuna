@@ -31,7 +31,7 @@ export default function HomePage() {
   const [jobs, setJobs] = useState<NormalizedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [country, setCountry] = useState("us");
+  const [country, setCountry] = useState("united states");
   const [searchTerm, setSearchTerm] = useState("");
   const [location, setLocation] = useState("");
 
@@ -106,25 +106,25 @@ export default function HomePage() {
                   onChange={(e) => setCountry(e.target.value)}
                   style={{ width: "100%", padding: "0.5rem", borderRadius: "4px", border: "1px solid #ddd" }}
                 >
-                  <option value="us">United States (US)</option>
-                  <option value="gb">United Kingdom (GB)</option>
-                  <option value="de">Germany (DE)</option>
-                  <option value="fr">France (FR)</option>
-                  <option value="ca">Canada (CA)</option>
-                  <option value="au">Australia (AU)</option>
-                  <option value="at">Austria (AT)</option>
-                  <option value="be">Belgium (BE)</option>
-                  <option value="br">Brazil (BR)</option>
-                  <option value="ch">Switzerland (CH)</option>
-                  <option value="es">Spain (ES)</option>
-                  <option value="in">India (IN)</option>
-                  <option value="it">Italy (IT)</option>
-                  <option value="mx">Mexico (MX)</option>
-                  <option value="nl">Netherlands (NL)</option>
-                  <option value="nz">New Zealand (NZ)</option>
-                  <option value="pl">Poland (PL)</option>
-                  <option value="sg">Singapore (SG)</option>
-                  <option value="za">South Africa (ZA)</option>
+                  <option value="united states">United States</option>
+                  <option value="united kingdom">United Kingdom</option>
+                  <option value="germany">Germany</option>
+                  <option value="france">France</option>
+                  <option value="canada">Canada</option>
+                  <option value="australia">Australia</option>
+                  <option value="austria">Austria</option>
+                  <option value="belgium">Belgium</option>
+                  <option value="brazil">Brazil</option>
+                  <option value="switzerland">Switzerland</option>
+                  <option value="spain">Spain</option>
+                  <option value="india">India</option>
+                  <option value="italy">Italy</option>
+                  <option value="mexico">Mexico</option>
+                  <option value="netherlands">Netherlands</option>
+                  <option value="new zealand">New Zealand</option>
+                  <option value="poland">Poland</option>
+                  <option value="singapore">Singapore</option>
+                  <option value="south africa">South Africa</option>
                 </select>
               </div>
               

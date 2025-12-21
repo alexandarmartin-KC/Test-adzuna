@@ -13,30 +13,32 @@ export type NormalizedJob = {
   salaryMax?: number;
 };
 
-// CoreSignal API response type
-interface CoreSignalJob {
-  id: string;
-  title: string;
+// CoreSignal API response types
+interface CoreSignalJobDetail {
+  id: number;
+  title?: string;
   company_name?: string;
   location?: string;
   country?: string;
+  city?: string;
   description?: string;
   application_url?: string;
-  created?: string;
-  last_updated?: string;
-  salary_from?: number;
-  salary_to?: number;
-}
-
-interface CoreSignalResponse {
-  jobs?: CoreSignalJob[];
-  total?: number;
+  url?: string;
+  posted_at?: string;
+  first_verified_at?: string;
+  last_verified_at?: string;
+  salary?: Array<{
+    min_amount?: number;
+    max_amount?: number;
+    currency?: string;
+  }>;
 }
 
 /**
  * Fetch job listings from CoreSignal API
- * @param params - Search parameters including keywords, location, and pagination
- * @returns Array of normalized job listings
+ * CoreSignal uses a two-step process:
+ * 1. Search for job IDs using Elasticsearch DSL
+ * 2. Collect full job details for each ID
  */
 export async function fetchCoreSignalJobs(params: {
   what?: string;
@@ -46,58 +48,109 @@ export async function fetchCoreSignalJobs(params: {
   resultsPerPage?: number;
 }): Promise<NormalizedJob[]> {
   const {
-    what = "",
+    what = "developer",
     where = "",
-    country = "us",
+    country = "united states",
     page = 1,
     resultsPerPage = 20,
   } = params;
 
-  // CoreSignal API configuration
   const apiKey = "KecMYsVhfFRcKfaIepAVwUTkN6dJyCH8";
-  const baseUrl = "https://api.coresignal.com/cdapi/v1/linkedin/job/collect";
+  const searchUrl = "https://api.coresignal.com/cdapi/v2/job_multi_source/search/es_dsl";
+  const collectUrl = "https://api.coresignal.com/cdapi/v2/job_multi_source/collect";
 
-  // Build CoreSignal API request body
-  const requestBody: any = {};
-
-  // Add filters
+  // Build Elasticsearch DSL query
+  const mustClauses: any[] = [];
+  
   if (what) {
-    requestBody.title = what;
+    mustClauses.push({ match: { title: what } });
   }
   if (where) {
-    requestBody.location = where;
+    mustClauses.push({ match: { location: where } });
+  }
+  if (country) {
+    mustClauses.push({ match: { country: country } });
   }
 
+  // If no filters, search for any jobs
+  if (mustClauses.length === 0) {
+    mustClauses.push({ match_all: {} });
+  }
+
+  const searchBody = {
+    query: {
+      bool: {
+        must: mustClauses
+      }
+    },
+    from: (page - 1) * resultsPerPage,
+    size: resultsPerPage
+  };
+
   try {
-    const response = await fetch(baseUrl, {
+    // Step 1: Search for job IDs
+    const searchResponse = await fetch(searchUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
+        "apikey": apiKey,
+        "accept": "application/json",
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify(searchBody),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`CoreSignal API error (${response.status}): ${errorText}`);
+    if (!searchResponse.ok) {
+      const errorText = await searchResponse.text();
+      throw new Error(`CoreSignal Search API error (${searchResponse.status}): ${errorText}`);
     }
 
-    const data: CoreSignalResponse = await response.json();
+    const jobIds: number[] = await searchResponse.json();
+
+    if (!jobIds || jobIds.length === 0) {
+      return [];
+    }
+
+    // Step 2: Collect full details for each job ID (limit to first 10 to avoid rate limits)
+    const limitedIds = jobIds.slice(0, Math.min(10, resultsPerPage));
+    const jobPromises = limitedIds.map(async (jobId) => {
+      try {
+        const collectResponse = await fetch(`${collectUrl}/${jobId}`, {
+          method: "GET",
+          headers: {
+            "apikey": apiKey,
+            "accept": "application/json",
+          },
+        });
+
+        if (!collectResponse.ok) {
+          console.error(`Failed to collect job ${jobId}`);
+          return null;
+        }
+
+        return await collectResponse.json() as CoreSignalJobDetail;
+      } catch (err) {
+        console.error(`Error collecting job ${jobId}:`, err);
+        return null;
+      }
+    });
+
+    const jobDetails = await Promise.all(jobPromises);
 
     // Map CoreSignal response to normalized format
-    const jobs: NormalizedJob[] = (data.jobs || []).map((job) => ({
-      id: job.id || Math.random().toString(36).substr(2, 9),
-      title: job.title || "Untitled Position",
-      company: job.company_name || "Unknown Company",
-      location: job.location || "Location not specified",
-      country: job.country || country.toUpperCase(),
-      description: job.description || "",
-      url: job.application_url || "",
-      createdAt: job.created || job.last_updated,
-      salaryMin: job.salary_from,
-      salaryMax: job.salary_to,
-    }));
+    const jobs: NormalizedJob[] = jobDetails
+      .filter((job): job is CoreSignalJobDetail => job !== null)
+      .map((job) => ({
+        id: job.id?.toString() || Math.random().toString(36).substr(2, 9),
+        title: job.title || "Untitled Position",
+        company: job.company_name || "Unknown Company",
+        location: job.city || job.location || "Location not specified",
+        country: job.country || country.toUpperCase(),
+        description: job.description || "",
+        url: job.application_url || job.url || "",
+        createdAt: job.posted_at || job.first_verified_at,
+        salaryMin: job.salary?.[0]?.min_amount,
+        salaryMax: job.salary?.[0]?.max_amount,
+      }));
 
     return jobs;
   } catch (error) {
