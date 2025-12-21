@@ -35,14 +35,26 @@ export default function CVAnalysisPage() {
         body: JSON.stringify({ cvText }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.message || "Analysis failed");
+        let errorMessage = "Analysis failed";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          errorMessage = `Server error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      
+      if (!data || !data.data) {
+        throw new Error("Invalid response from server");
       }
 
       setResult(data.data);
     } catch (err: any) {
+      console.error("CV Analysis error:", err);
       setError(err.message || "An error occurred during analysis");
     } finally {
       setIsLoading(false);
@@ -68,10 +80,21 @@ export default function CVAnalysisPage() {
           body: formData,
         });
 
-        const data = await response.json();
-
         if (!response.ok) {
-          throw new Error(data.message || "Failed to parse PDF");
+          let errorMessage = "Failed to parse PDF";
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+          } catch {
+            errorMessage = `Server error: ${response.status} ${response.statusText}`;
+          }
+          throw new Error(errorMessage);
+        }
+
+        const data = await response.json();
+        
+        if (!data || !data.text) {
+          throw new Error("No text extracted from PDF");
         }
 
         text = data.text;

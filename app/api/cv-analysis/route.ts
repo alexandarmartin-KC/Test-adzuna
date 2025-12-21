@@ -19,7 +19,20 @@ export type CVAnalysisResult = {
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // Parse request body with error handling
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      return NextResponse.json(
+        {
+          error: "Invalid request",
+          message: "Request body must be valid JSON",
+        },
+        { status: 400 }
+      );
+    }
+
     const { cvText } = body;
 
     // Validate input
@@ -28,6 +41,17 @@ export async function POST(request: NextRequest) {
         {
           error: "Invalid input",
           message: "cvText is required and must be a non-empty string",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Check CV length (max 50,000 characters to prevent abuse)
+    if (cvText.length > 50000) {
+      return NextResponse.json(
+        {
+          error: "CV too long",
+          message: "CV text must be less than 50,000 characters",
         },
         { status: 400 }
       );
