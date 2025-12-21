@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAdzunaJobs } from "@/lib/adzunaClient";
 
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
+
 // Supported Nordic countries
 const VALID_COUNTRIES = ["dk", "se", "no", "fi"] as const;
 type ValidCountry = typeof VALID_COUNTRIES[number];
