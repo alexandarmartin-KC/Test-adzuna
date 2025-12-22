@@ -66,6 +66,7 @@ let cachedJobs: Job[] | null = null;
 let cacheTimestamp: number | null = null;
 
 // Firecrawl extraction schema (JSON Schema draft-07 compatible)
+// Made flexible to allow Firecrawl to extract what it can find
 const EXTRACTION_SCHEMA = {
   "$schema": "http://json-schema.org/draft-07/schema#",
   type: "object",
@@ -82,13 +83,11 @@ const EXTRACTION_SCHEMA = {
           department: { type: "string" },
           url: { type: "string" }
         },
-        required: ["title", "company", "url"],
-        additionalProperties: false
+        required: ["title"] // Only title is required - be flexible
       }
     }
   },
-  required: ["jobs"],
-  additionalProperties: false
+  required: ["jobs"]
 };
 
 // Extraction prompt
