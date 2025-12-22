@@ -423,18 +423,19 @@ async function crawlJobs(): Promise<Job[]> {
         }
       }
       
-      // Deduplicate jobs based on title + location + company
+      // Deduplicate jobs based on URL (unique identifier)
+      // This allows multiple jobs with same title/location if they have different URLs
       const uniqueJobs = Array.from(
         new Map(
           companyJobs.map(job => [
-            `${job.company}-${job.title}-${job.location}`.toLowerCase(),
+            job.url, // Use URL as unique key
             job
           ])
         ).values()
       );
       
       if (uniqueJobs.length < companyJobs.length) {
-        console.log(`Removed ${companyJobs.length - uniqueJobs.length} duplicate jobs for ${company.name}`);
+        console.log(`Removed ${companyJobs.length - uniqueJobs.length} duplicate jobs for ${company.name} (same URL)`);
       }
       
       allJobs.push(...uniqueJobs);
