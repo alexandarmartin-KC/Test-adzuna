@@ -52,22 +52,23 @@ const EXTRACTION_SCHEMA = {
 };
 
 // Extraction prompt
-const EXTRACTION_PROMPT = `You are extracting ONLY ACTIVE/OPEN job postings from Ørsted and Canon career pages. 
+const EXTRACTION_PROMPT = `Extract ALL currently ACTIVE/OPEN job postings from this Ørsted or Canon career page. 
 
-For each ACTIVE job listing visible on the page:
-- title: the exact job title/position name
-- department: department or team if mentioned
-- location: city/office location
-- country: infer from location or domain (.dk = Denmark, .se = Sweden, .no = Norway)
+For each active job listing you can see:
+- title: the exact job title/position name (REQUIRED)
+- department: department or team if visible
+- location: city/office location if specified
+- country: Denmark for .dk, Sweden for .se, Norway for .no
 - company: "Orsted" for orsted.com, "Canon" for canon sites
-- url: Extract the unique identifier or path from the job's link (e.g., "job/12345" or the job ID). If you can see a full URL to the specific job posting, use that. DO NOT use placeholder URLs like example.com. If you cannot find a valid URL, use the job ID or a descriptive identifier.
+- url: if you can see a direct link to this specific job, include it. Otherwise leave blank or use a job ID if visible.
 
 IMPORTANT: 
-- Only include jobs that are clearly marked as active/open
-- Skip expired, closed, or filled positions
-- Each job must have a real, unique identifier
+- Include ALL active job postings you can find on the page
+- Only skip jobs that are explicitly marked as closed/filled/expired
+- Job title is required for each entry
+- It's OK if URL is not available - we'll link to the main careers page
 
-Return a JSON object with a "jobs" array.`;
+Return a JSON object with a "jobs" array containing all active positions.`;
 
 /**
  * Crawl jobs from Firecrawl API (one-time operation)
@@ -119,24 +120,36 @@ async function crawlJobs(): Promise<Job[]> {
         
         const jobs = data.data.extract.jobs
           .map((job: any) => {
-            let jobUrl = job.url || url;
+            let jobUrl = url; // Default to the main careers page
             
-            // Try to find a matching link from the page if URL looks invalid
-            if (!jobUrl || jobUrl.includes('example.com') || !jobUrl.startsWith('http')) {
-              // Look for links that might match this job
-              const jobId = job.url || job.title;
-              const matchingLink = pageLinks.find((link: string) => 
-                link.toLowerCase().includes('job') || 
-                link.toLowerCase().includes('vacanc') ||
-                link.toLowerCase().includes('career')
-              );
+            // Try to get a specific job URL if provided and valid
+            if (job.url && job.url.startsWith('http') && !job.url.includes('example.com')) {
+              // Check if it's a job-specific link (contains job ID or similar)
+              const urlLower = job.url.toLowerCase();
+              if (urlLower.includes('/job/') || 
+                  urlLower.includes('jobid') || 
+                  urlLower.includes('vacancy') ||
+                  urlLower.includes('position')) {
+                jobUrl = job.url;
+              }
+            }
+            
+            // If still using base URL, try to find a specific job link from page links
+            if (jobUrl === url && pageLinks.length > 0) {
+              // Look for job-specific links that aren't just the base careers page
+              const specificLink = pageLinks.find((link: string) => {
+                const linkLower = link.toLowerCase();
+                return link.startsWith('http') && 
+                       link !== url &&
+                       (linkLower.includes('/job/') || 
+                        linkLower.includes('jobid') || 
+                        linkLower.includes('vacancy') ||
+                        linkLower.includes('position') ||
+                        linkLower.includes('openings'));
+              });
               
-              if (matchingLink && matchingLink.startsWith('http')) {
-                jobUrl = matchingLink;
-              } else if (jobId && !jobId.includes('example.com')) {
-                // Construct URL from base and job ID
-                const baseUrl = new URL(url);
-                jobUrl = `${baseUrl.origin}${jobId.startsWith('/') ? jobId : '/' + jobId}`;
+              if (specificLink) {
+                jobUrl = specificLink;
               }
             }
             
@@ -149,10 +162,11 @@ async function crawlJobs(): Promise<Job[]> {
               url: jobUrl,
             };
           })
-          // Filter out jobs with invalid URLs
+          // Only filter out completely invalid entries
           .filter((job: Job) => 
+            job.title && 
+            job.title !== "Unknown Title" &&
             job.url && 
-            !job.url.includes('example.com') && 
             job.url.startsWith('http')
           );
         
