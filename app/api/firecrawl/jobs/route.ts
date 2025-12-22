@@ -545,7 +545,7 @@ async function crawlJobs(): Promise<Job[]> {
       allJobs.push(...uniqueJobs);
       console.log(`Successfully crawled ${company.name}, found ${uniqueJobs.length} unique jobs (${companyJobs.length} total before dedup)`);
     } catch (error) {
-      console.error(`Error crawling ${company.name} (${careersUrl}):`, error);
+      console.error(`Error crawling ${company.name}:`, error);
     }
   }
 
