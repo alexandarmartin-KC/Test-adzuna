@@ -52,7 +52,15 @@ const EXTRACTION_SCHEMA = {
 };
 
 // Extraction prompt
-const EXTRACTION_PROMPT = `You are extracting job postings from Ørsted and Canon career pages. Respect robots.txt and extract only publicly available job postings. For each job, extract title, department/team if available, location/country, and apply URL. Infer company from the domain. Return JSON with a top-level key "jobs" which is an array of job objects.`;
+const EXTRACTION_PROMPT = `You are extracting job postings from Ørsted and Canon career pages. For each job listing on the page, extract:
+- title: the job title/position name
+- department: department or team if available
+- location: city/office location
+- country: infer from location or domain (.dk = Denmark, .se = Sweden, .no = Norway)
+- company: extract from domain (orsted.com = "Orsted", canon.dk/no/se = "Canon")
+- url: THE DIRECT CLICKABLE LINK/URL TO VIEW OR APPLY FOR THIS SPECIFIC JOB. This must be the full URL including protocol (https://), domain, and any path/query parameters that link to the individual job posting details page. DO NOT use the generic careers page URL. Extract the actual href attribute from each job's "View" or "Apply" link.
+
+Return a JSON object with a "jobs" array containing all job postings found on the page.`;
 
 /**
  * Crawl jobs from Firecrawl API (one-time operation)
