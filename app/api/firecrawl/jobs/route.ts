@@ -108,6 +108,11 @@ async function discoverCareersPage(company: CompanyConfig, apiKey: string): Prom
 
   // Try common careers page patterns first
   const commonPaths = [
+    '/careers/find-a-job/career-search-results.html',
+    '/careers/job-search',
+    '/careers/jobs',
+    '/careers/search',
+    '/jobs/search',
     '/careers',
     '/careers/',
     '/jobs',
@@ -121,6 +126,8 @@ async function discoverCareersPage(company: CompanyConfig, apiKey: string): Prom
 
   console.log(`Attempting to discover careers page for ${company.name} at ${company.domain}`);
   
+  const candidateUrls: string[] = [];
+  
   // Use Firecrawl to map the site and find careers pages
   try {
     const response = await fetch("https://api.firecrawl.dev/v1/map", {
@@ -132,47 +139,100 @@ async function discoverCareersPage(company: CompanyConfig, apiKey: string): Prom
       body: JSON.stringify({
         url: company.domain,
         search: "careers jobs vacancies positions opportunities employment",
-        limit: 20,
+        limit: 30,
       }),
     });
 
     if (response.ok) {
       const data = await response.json();
       if (data.success && data.links && data.links.length > 0) {
-        // Find the most relevant careers link
-        const careersLink = data.links.find((link: string) => {
+        // Collect all relevant career links
+        const careersLinks = data.links.filter((link: string) => {
           const lower = link.toLowerCase();
-          return lower.includes('career') || 
-                 lower.includes('job') || 
-                 lower.includes('vacan') ||
-                 lower.includes('position');
+          return (lower.includes('career') || 
+                  lower.includes('job') || 
+                  lower.includes('vacan') ||
+                  lower.includes('position') ||
+                  lower.includes('opening')) &&
+                 !lower.includes('blog') &&
+                 !lower.includes('news') &&
+                 !lower.includes('article');
         });
         
-        if (careersLink) {
-          console.log(`Discovered careers page: ${careersLink}`);
-          return careersLink;
-        }
+        candidateUrls.push(...careersLinks);
+        console.log(`Found ${careersLinks.length} candidate URLs from map`);
       }
     }
   } catch (error) {
     console.error(`Error mapping site for ${company.name}:`, error);
   }
 
-  // Fallback: try common paths
+  // Add common paths as candidates
   for (const path of commonPaths) {
-    const testUrl = `${company.domain}${path}`;
+    candidateUrls.push(`${company.domain}${path}`);
+  }
+
+  // If we have a country, try country-specific URLs
+  if (company.country) {
+    candidateUrls.push(
+      `${company.domain}/careers/find-a-job/career-search-results.html?countries=${company.country}`,
+      `${company.domain}/careers/jobs?country=${company.country}`,
+      `${company.domain}/careers?location=${company.country}`,
+      `${company.domain}/jobs?country=${company.country}`
+    );
+  }
+
+  // Test each candidate URL by doing a quick scrape to count jobs
+  console.log(`Testing ${candidateUrls.length} candidate URLs for ${company.name}...`);
+  let bestUrl = company.domain;
+  let maxJobs = 0;
+
+  for (const testUrl of candidateUrls.slice(0, 10)) { // Limit testing to first 10
     try {
-      const response = await fetch(testUrl, { method: 'HEAD', redirect: 'follow' });
-      if (response.ok) {
-        console.log(`Found careers page at: ${testUrl}`);
-        return testUrl;
+      const testResponse = await fetch("https://api.firecrawl.dev/v1/scrape", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          url: testUrl,
+          formats: ["extract"],
+          extract: {
+            prompt: EXTRACTION_PROMPT,
+            schema: EXTRACTION_SCHEMA,
+          },
+        }),
+      });
+
+      if (testResponse.ok) {
+        const testData = await testResponse.json();
+        const jobCount = testData?.data?.extract?.jobs?.length || 0;
+        
+        console.log(`  ${testUrl}: ${jobCount} jobs found`);
+        
+        if (jobCount > maxJobs) {
+          maxJobs = jobCount;
+          bestUrl = testUrl;
+        }
+        
+        // If we found a page with many jobs, use it immediately
+        if (jobCount >= 20) {
+          console.log(`Found excellent careers page with ${jobCount} jobs: ${bestUrl}`);
+          return bestUrl;
+        }
       }
     } catch (error) {
-      // Continue to next path
+      // Continue to next URL
     }
   }
 
-  console.warn(`Could not discover careers page for ${company.name}, using domain: ${company.domain}`);
+  if (maxJobs > 0) {
+    console.log(`Best careers page found with ${maxJobs} jobs: ${bestUrl}`);
+    return bestUrl;
+  }
+
+  console.warn(`Could not find careers page with jobs for ${company.name}, using domain: ${company.domain}`);
   return company.domain;
 }
 
