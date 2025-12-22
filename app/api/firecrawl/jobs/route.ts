@@ -68,16 +68,19 @@ async function crawlJobs(): Promise<Job[]> {
     try {
       console.log(`Crawling ${url}...`);
       
-      const response = await fetch("https://api.firecrawl.dev/v1/extract", {
+      const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          urls: [url],
-          prompt: EXTRACTION_PROMPT,
-          schema: EXTRACTION_SCHEMA,
+          url: url,
+          formats: ["extract"],
+          extract: {
+            prompt: EXTRACTION_PROMPT,
+            schema: EXTRACTION_SCHEMA,
+          },
         }),
       });
 
@@ -89,24 +92,20 @@ async function crawlJobs(): Promise<Job[]> {
       }
 
       const data = await response.json();
+      console.log(`Response from ${url}:`, JSON.stringify(data, null, 2));
       
-      // Extract jobs from response
-      if (data.data && Array.isArray(data.data)) {
-        for (const item of data.data) {
-          if (item.extract && item.extract.jobs && Array.isArray(item.extract.jobs)) {
-            // Normalize jobs
-            const jobs = item.extract.jobs.map((job: any) => ({
-              title: job.title || "Unknown Title",
-              company: normalizeCompany(job.company || url),
-              country: normalizeCountry(job.country || job.location || url),
-              location: job.location || "Not specified",
-              department: job.department,
-              url: job.url || url,
-            }));
-            
-            allJobs.push(...jobs);
-          }
-        }
+      // Extract jobs from response (Firecrawl v1/scrape format)
+      if (data.success && data.data && data.data.extract && data.data.extract.jobs) {
+        const jobs = data.data.extract.jobs.map((job: any) => ({
+          title: job.title || "Unknown Title",
+          company: normalizeCompany(job.company || url),
+          country: normalizeCountry(job.country || job.location || url),
+          location: job.location || "Not specified",
+          department: job.department,
+          url: job.url || url,
+        }));
+        
+        allJobs.push(...jobs);
       }
       
       console.log(`Successfully crawled ${url}, found ${allJobs.length} jobs so far`);
