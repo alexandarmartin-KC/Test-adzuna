@@ -14,16 +14,39 @@ interface Job {
 }
 
 // In-memory cache for crawled jobs
+// Company configuration - just need base domain and country
+interface CompanyConfig {
+  name: "Orsted" | "Canon" | string;
+  domain: string;
+  country?: string;
+  careersPath?: string; // Optional: if we know the careers path
+}
+
+const COMPANIES: CompanyConfig[] = [
+  { 
+    name: "Orsted", 
+    domain: "https://orsted.com",
+    careersPath: "/en/careers/vacancies-list"
+  },
+  { 
+    name: "Canon", 
+    domain: "https://www.canon.dk",
+    country: "DK"
+  },
+  { 
+    name: "Canon", 
+    domain: "https://www.canon.no",
+    country: "NO"
+  },
+  { 
+    name: "Canon", 
+    domain: "https://www.canon.se",
+    country: "SE"
+  },
+];
+
 let cachedJobs: Job[] | null = null;
 let cacheTimestamp: number | null = null;
-
-// URLs to crawl
-const CRAWL_URLS = [
-  "https://orsted.com/en/careers/vacancies-list",
-  "https://ejqe.fa.em2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/jobs?location=Denmark&locationId=300000000294904&locationLevel=country&mode=location",
-  "https://www.canon.no/careers/",
-  "https://www.canon.se/careers/",
-];
 
 // Firecrawl extraction schema (JSON Schema draft-07 compatible)
 const EXTRACTION_SCHEMA = {
@@ -71,6 +94,85 @@ IMPORTANT:
 Return a JSON object with a "jobs" array containing all active positions.`;
 
 /**
+ * Discover the careers page URL for a company
+ */
+async function discoverCareersPage(company: CompanyConfig, apiKey: string): Promise<string | null> {
+  // If we already have a careers path, use it
+  if (company.careersPath) {
+    return `${company.domain}${company.careersPath}`;
+  }
+
+  // Try common careers page patterns first
+  const commonPaths = [
+    '/careers',
+    '/careers/',
+    '/jobs',
+    '/jobs/',
+    '/career',
+    '/career/',
+    '/work-with-us',
+    '/about/careers',
+    '/company/careers',
+  ];
+
+  console.log(`Attempting to discover careers page for ${company.name} at ${company.domain}`);
+  
+  // Use Firecrawl to map the site and find careers pages
+  try {
+    const response = await fetch("https://api.firecrawl.dev/v1/map", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        url: company.domain,
+        search: "careers jobs vacancies positions opportunities employment",
+        limit: 20,
+      }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success && data.links && data.links.length > 0) {
+        // Find the most relevant careers link
+        const careersLink = data.links.find((link: string) => {
+          const lower = link.toLowerCase();
+          return lower.includes('career') || 
+                 lower.includes('job') || 
+                 lower.includes('vacan') ||
+                 lower.includes('position');
+        });
+        
+        if (careersLink) {
+          console.log(`Discovered careers page: ${careersLink}`);
+          return careersLink;
+        }
+      }
+    }
+  } catch (error) {
+    console.error(`Error mapping site for ${company.name}:`, error);
+  }
+
+  // Fallback: try common paths
+  for (const path of commonPaths) {
+    const testUrl = `${company.domain}${path}`;
+    try {
+      const response = await fetch(testUrl, { method: 'HEAD', redirect: 'follow' });
+      if (response.ok) {
+        console.log(`Found careers page at: ${testUrl}`);
+        return testUrl;
+      }
+    } catch (error) {
+      // Continue to next path
+    }
+  }
+
+  console.warn(`Could not discover careers page for ${company.name}, using domain: ${company.domain}`);
+  return company.domain;
+}
+
+/**
  * Crawl jobs from Firecrawl API (one-time operation)
  */
 async function crawlJobs(): Promise<Job[]> {
@@ -82,10 +184,22 @@ async function crawlJobs(): Promise<Job[]> {
 
   const allJobs: Job[] = [];
 
-  // Process each URL
-  for (const url of CRAWL_URLS) {
+  // Process each company
+  for (const company of COMPANIES) {
+    let careersUrl: string | null = null;
+    
     try {
-      console.log(`Crawling ${url}...`);
+      console.log(`Processing ${company.name} (${company.domain})...`);
+      
+      // Discover the careers page
+      careersUrl = await discoverCareersPage(company, apiKey);
+      
+      if (!careersUrl) {
+        console.error(`Could not find careers page for ${company.name}`);
+        continue;
+      }
+
+      console.log(`Crawling ${careersUrl}...`);
       
       const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
         method: "POST",
@@ -94,7 +208,7 @@ async function crawlJobs(): Promise<Job[]> {
           "Authorization": `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          url: url,
+          url: careersUrl,
           formats: ["extract", "links"],
           extract: {
             prompt: EXTRACTION_PROMPT,
@@ -104,14 +218,14 @@ async function crawlJobs(): Promise<Job[]> {
       });
 
       if (!response.ok) {
-        console.error(`Failed to crawl ${url}: ${response.status} ${response.statusText}`);
+        console.error(`Failed to crawl ${careersUrl}: ${response.status} ${response.statusText}`);
         const errorText = await response.text();
         console.error(`Error details: ${errorText}`);
         continue;
       }
 
       const data = await response.json();
-      console.log(`Response from ${url}:`, JSON.stringify(data, null, 2));
+      console.log(`Response from ${careersUrl}:`, JSON.stringify(data, null, 2));
       
       // Extract jobs from response (Firecrawl v1/scrape format)
       if (data.success && data.data && data.data.extract && data.data.extract.jobs) {
@@ -120,7 +234,7 @@ async function crawlJobs(): Promise<Job[]> {
         
         const jobs = data.data.extract.jobs
           .map((job: any) => {
-            let jobUrl = url; // Default to the main careers page
+            let jobUrl = careersUrl; // Default to the main careers page
             
             // Try to get a specific job URL if provided and valid
             if (job.url && job.url.startsWith('http') && !job.url.includes('example.com')) {
@@ -135,12 +249,12 @@ async function crawlJobs(): Promise<Job[]> {
             }
             
             // If still using base URL, try to find a specific job link from page links
-            if (jobUrl === url && pageLinks.length > 0) {
+            if (jobUrl === careersUrl && pageLinks.length > 0) {
               // Look for job-specific links that aren't just the base careers page
               const specificLink = pageLinks.find((link: string) => {
                 const linkLower = link.toLowerCase();
                 return link.startsWith('http') && 
-                       link !== url &&
+                       link !== careersUrl &&
                        (linkLower.includes('/job/') || 
                         linkLower.includes('jobid') || 
                         linkLower.includes('vacancy') ||
@@ -155,8 +269,8 @@ async function crawlJobs(): Promise<Job[]> {
             
             return {
               title: job.title || "Unknown Title",
-              company: normalizeCompany(job.company || url),
-              country: normalizeCountry(job.country || job.location || url),
+              company: company.name,
+              country: company.country || normalizeCountry(job.country || job.location || careersUrl),
               location: job.location || "Not specified",
               department: job.department,
               url: jobUrl,
@@ -173,9 +287,9 @@ async function crawlJobs(): Promise<Job[]> {
         allJobs.push(...jobs);
       }
       
-      console.log(`Successfully crawled ${url}, found ${allJobs.length} jobs so far`);
+      console.log(`Successfully crawled ${careersUrl}, found ${allJobs.length} jobs so far`);
     } catch (error) {
-      console.error(`Error crawling ${url}:`, error);
+      console.error(`Error crawling ${company.name} (${careersUrl}):`, error);
     }
   }
 
