@@ -72,6 +72,11 @@ const CAREERS_KEYWORDS = [
   'stillinger', 'positions', 'opportunities', 'recruitment', 'hiring'
 ];
 
+const JOBS_PAGE_KEYWORDS = [
+  'ledige-stillinger', 'vacancies', 'jobs', 'positions', 'openings',
+  'open-positions', 'job-listings', 'search'
+];
+
 const COMMON_CAREERS_PATHS = [
   '/careers', '/career', '/jobs', '/karriere', '/ledige-stillinger',
   '/work-with-us', '/join-us', '/vacancies', '/positions', '/job',
@@ -118,8 +123,31 @@ async function discoverCareersPage(inputUrl: string): Promise<string> {
     
     if (platformMatches && platformMatches.length > 0) {
       // Clean and return the first platform URL
-      const cleanUrl = platformMatches[0].replace(/["'>\s].*$/, '');
+      let cleanUrl = platformMatches[0].replace(/["'>\s].*$/, '');
       console.log(`  [Discovery] Found career platform URL: ${cleanUrl}`);
+      
+      // If it's an Emply forside/home page, try to find the actual jobs page
+      if (cleanUrl.includes('.emply.com') && (cleanUrl.endsWith('/forside') || cleanUrl.endsWith('/home') || !cleanUrl.includes('stillinger'))) {
+        try {
+          const emplyResp = await fetch(cleanUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+          });
+          if (emplyResp.ok) {
+            const emplyHtml = await emplyResp.text();
+            const jobsLinkMatch = emplyHtml.match(/href=["']([^"']*(?:ledige-stillinger|vacancies|jobs|positions)[^"']*)["']/i);
+            if (jobsLinkMatch) {
+              const jobsPath = jobsLinkMatch[1];
+              if (jobsPath.startsWith('/')) {
+                cleanUrl = new URL(cleanUrl).origin + jobsPath;
+              } else if (jobsPath.startsWith('http')) {
+                cleanUrl = jobsPath;
+              }
+              console.log(`  [Discovery] Found jobs page within Emply: ${cleanUrl}`);
+            }
+          }
+        } catch { /* use the original URL */ }
+      }
+      
       return cleanUrl;
     }
     
