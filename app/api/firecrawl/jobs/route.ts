@@ -28,8 +28,8 @@ interface CompanyConfig {
 const COMPANIES: CompanyConfig[] = [
   { name: "Ørsted", careersUrl: "https://orsted.com/en/careers/vacancies-list" },
   { name: "Novo Nordisk", careersUrl: "https://careers.novonordisk.com/search/?q=&locationsearch=denmark", country: "DK" },
-  { name: "Matas", careersUrl: "matas.dk", country: "DK" },  // Test: just domain!
-  // Add more: { name: "Company", careersUrl: "https://..." },
+  { name: "Matas", careersUrl: "matas.dk", country: "DK" },  // Auto-discovers Emply!
+  // Add more: { name: "Company", careersUrl: "https://..." or just "domain.com" },
 ];
 
 // Cache
