@@ -570,12 +570,19 @@ async function crawlSingleCompany(company: CompanyConfig, apiKey: string): Promi
       const resp = await fetch(careersUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
       });
-      if (resp.ok) html = await resp.text();
-    } catch (e) { /* ignore */ }
+      if (resp.ok) {
+        html = await resp.text();
+        console.log(`HTML fetched for platform detection: ${html.length} chars`);
+      } else {
+        console.log(`HTML fetch failed: HTTP ${resp.status}`);
+      }
+    } catch (e) {
+      console.log(`HTML fetch error: ${e}`);
+    }
     
     // Detect platform
     const platform = detectPlatform(careersUrl, html);
-    console.log(`Platform detected: ${platform}`);
+    console.log(`Platform detected: ${platform} (has html: ${!!html}, html includes jobTitle-link: ${html?.includes('jobTitle-link')})`);
     
     let jobs: Job[] = [];
     
