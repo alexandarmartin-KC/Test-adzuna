@@ -28,7 +28,7 @@ interface CompanyConfig {
 const COMPANIES: CompanyConfig[] = [
   { name: "Ørsted", careersUrl: "https://orsted.com/en/careers/vacancies-list" },
   { name: "Novo Nordisk", careersUrl: "https://careers.novonordisk.com/search/?q=&locationsearch=denmark", country: "DK" },
-  { name: "Matas", careersUrl: "https://matas.career.emply.com/ledige-stillinger", country: "DK" },
+  { name: "Matas", careersUrl: "matas.dk", country: "DK" },  // Test: just domain!
   // Add more: { name: "Company", careersUrl: "https://..." },
 ];
 
@@ -60,6 +60,132 @@ const EXTRACTION_SCHEMA = {
 const EXTRACTION_PROMPT = `Extract ALL job postings from this careers page.
 For each job: title (REQUIRED), location, department, url to apply.
 Extract ALL jobs, not just the first 10.`;
+
+
+// ============================================================
+// CAREERS PAGE AUTO-DISCOVERY - Find careers page from any URL
+// ============================================================
+
+const CAREERS_KEYWORDS = [
+  'karriere', 'career', 'careers', 'jobs', 'job', 'ledige-stillinger', 
+  'vacancies', 'work-with-us', 'join-us', 'join-our-team', 'arbejd-hos-os',
+  'stillinger', 'positions', 'opportunities', 'recruitment', 'hiring'
+];
+
+const COMMON_CAREERS_PATHS = [
+  '/careers', '/career', '/jobs', '/karriere', '/ledige-stillinger',
+  '/work-with-us', '/join-us', '/vacancies', '/positions', '/job',
+  '/da/karriere', '/en/careers', '/dk/careers', '/about/careers'
+];
+
+async function discoverCareersPage(inputUrl: string): Promise<string> {
+  // Normalize URL
+  let baseUrl = inputUrl.trim();
+  if (!baseUrl.startsWith('http')) baseUrl = 'https://' + baseUrl;
+  
+  const urlObj = new URL(baseUrl);
+  const origin = urlObj.origin;
+  
+  // If URL already looks like a careers page, use it
+  const pathLower = urlObj.pathname.toLowerCase();
+  if (CAREERS_KEYWORDS.some(kw => pathLower.includes(kw))) {
+    console.log(`  [Discovery] URL already looks like careers page: ${baseUrl}`);
+    return baseUrl;
+  }
+  
+  console.log(`  [Discovery] Looking for careers page on ${origin}...`);
+  
+  try {
+    // Fetch the main page
+    const response = await fetch(baseUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      redirect: 'follow',
+    });
+    
+    if (!response.ok) {
+      console.log(`  [Discovery] Could not fetch ${baseUrl}`);
+      return baseUrl;
+    }
+    
+    const html = await response.text();
+    
+    // Look for careers links in HTML
+    const linkRegex = /<a[^>]+href=["']([^"']+)["'][^>]*>([^<]*)<\/a>/gi;
+    let match;
+    const foundLinks: { url: string; score: number }[] = [];
+    
+    while ((match = linkRegex.exec(html)) !== null) {
+      const href = match[1];
+      const linkText = match[2].toLowerCase();
+      
+      // Skip external links, anchors, javascript, etc.
+      if (href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:')) continue;
+      
+      // Build full URL
+      let fullUrl: string;
+      try {
+        if (href.startsWith('http')) {
+          fullUrl = href;
+        } else if (href.startsWith('/')) {
+          fullUrl = origin + href;
+        } else {
+          fullUrl = origin + '/' + href;
+        }
+      } catch { continue; }
+      
+      // Score this link
+      let score = 0;
+      const hrefLower = href.toLowerCase();
+      
+      // Check URL path for keywords
+      for (const kw of CAREERS_KEYWORDS) {
+        if (hrefLower.includes(kw)) score += 10;
+        if (linkText.includes(kw)) score += 15;
+      }
+      
+      // Bonus for staying on same domain
+      if (fullUrl.includes(urlObj.hostname)) score += 5;
+      
+      // Bonus for known career platforms
+      if (fullUrl.includes('.emply.com')) score += 20;
+      if (fullUrl.includes('successfactors')) score += 20;
+      if (fullUrl.includes('greenhouse.io')) score += 20;
+      if (fullUrl.includes('workday')) score += 20;
+      if (fullUrl.includes('lever.co')) score += 20;
+      
+      if (score > 0) {
+        foundLinks.push({ url: fullUrl, score });
+      }
+    }
+    
+    // Sort by score and pick best
+    foundLinks.sort((a, b) => b.score - a.score);
+    
+    if (foundLinks.length > 0) {
+      console.log(`  [Discovery] Found careers page: ${foundLinks[0].url} (score: ${foundLinks[0].score})`);
+      return foundLinks[0].url;
+    }
+    
+    // Try common paths as fallback
+    for (const path of COMMON_CAREERS_PATHS) {
+      try {
+        const testUrl = origin + path;
+        const testResp = await fetch(testUrl, { method: 'HEAD', redirect: 'follow' });
+        if (testResp.ok) {
+          console.log(`  [Discovery] Found careers page at common path: ${testUrl}`);
+          return testUrl;
+        }
+      } catch { /* continue */ }
+    }
+    
+    console.log(`  [Discovery] No careers page found, using original URL`);
+    return baseUrl;
+    
+  } catch (error) {
+    console.error(`  [Discovery] Error:`, error);
+    return baseUrl;
+  }
+}
 
 
 // ============================================================
@@ -325,21 +451,25 @@ async function crawlJobs(): Promise<Job[]> {
   
   for (const company of COMPANIES) {
     console.log(`\n=== ${company.name} ===`);
-    console.log(`URL: ${company.careersUrl}`);
+    console.log(`Input URL: ${company.careersUrl}`);
     
     const country = company.country || 'DK';
+    
+    // Auto-discover careers page if needed
+    const careersUrl = await discoverCareersPage(company.careersUrl);
+    console.log(`Careers URL: ${careersUrl}`);
     
     // Try to fetch HTML to detect platform
     let html: string | undefined;
     try {
-      const resp = await fetch(company.careersUrl, {
+      const resp = await fetch(careersUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
       });
       if (resp.ok) html = await resp.text();
     } catch (e) { /* ignore */ }
     
     // Detect platform
-    const platform = detectPlatform(company.careersUrl, html);
+    const platform = detectPlatform(careersUrl, html);
     console.log(`Platform detected: ${platform}`);
     
     let jobs: Job[] = [];
@@ -347,10 +477,10 @@ async function crawlJobs(): Promise<Job[]> {
     // Use platform-specific scraper (FREE) or Firecrawl (credits)
     switch (platform) {
       case "emply":
-        jobs = await scrapeEmply(company.careersUrl, company.name, country);
+        jobs = await scrapeEmply(careersUrl, company.name, country);
         break;
       case "successfactors":
-        jobs = await scrapeSuccessFactors(company.careersUrl, company.name, country);
+        jobs = await scrapeSuccessFactors(careersUrl, company.name, country);
         break;
       case "greenhouse":
       case "workday":
@@ -358,7 +488,7 @@ async function crawlJobs(): Promise<Job[]> {
       case "unknown":
       default:
         // Use Firecrawl AI for unknown platforms
-        jobs = await scrapeWithFirecrawl(company.careersUrl, company.name, country, apiKey);
+        jobs = await scrapeWithFirecrawl(careersUrl, company.name, country, apiKey);
     }
     
     // Deduplicate by URL
