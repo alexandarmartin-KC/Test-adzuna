@@ -86,23 +86,24 @@ const EXTRACTION_SCHEMA = {
 };
 
 // Extraction prompt
-const EXTRACTION_PROMPT = `Extract ALL currently ACTIVE/OPEN job postings from this Ørsted or Canon career page. 
+const EXTRACTION_PROMPT = `Extract ALL job postings from this career page. This is CRITICAL - do NOT limit results to first 10 or any arbitrary number.
 
-For each active job listing you can see:
+For EVERY single job listing visible on the page, extract:
 - title: the exact job title/position name (REQUIRED)
 - department: department or team if visible
 - location: city/office location if specified
-- country: Denmark for .dk, Sweden for .se, Norway for .no
-- company: "Orsted" for orsted.com, "Canon" for canon sites
-- url: if you can see a direct link to this specific job, include it. Otherwise leave blank or use a job ID if visible.
+- country: Denmark for .dk, Sweden for .se, Norway for .no, or extract from job details
+- company: Extract from page or infer from domain
+- url: Direct link to specific job if available
 
-IMPORTANT: 
-- Include ALL active job postings you can find on the page
-- Only skip jobs that are explicitly marked as closed/filled/expired
-- Job title is required for each entry
-- It's OK if URL is not available - we'll link to the main careers page
+REQUIREMENTS:
+- Extract EVERY job on the page - there may be 50+ jobs, include them ALL
+- Do NOT stop at 10 items - continue until ALL jobs are extracted
+- Only skip jobs explicitly marked as closed/filled/expired
+- If you see 53 jobs on the page, return all 53 jobs
 
-Return a JSON object with a "jobs" array containing all active positions.`;
+Return JSON with a "jobs" array containing ALL positions found.`;
+
 
 /**
  * Discover the careers page URL for a company
@@ -325,6 +326,7 @@ async function crawlJobs(): Promise<Job[]> {
               prompt: EXTRACTION_PROMPT,
               schema: EXTRACTION_SCHEMA,
             },
+            timeout: 60000, // Increase timeout for pages with many jobs
           }),
         });
 
