@@ -348,9 +348,11 @@ async function scrapeSuccessFactors(careersUrl: string, companyName: string, cou
       }
       const html = await response.text();
       
-      // Check if this is a JS-rendered SuccessFactors (career2.successfactors.eu style)
-      if (html.includes('career2.successfactors.eu') || html.includes('career_company=')) {
-        console.log(`  [SuccessFactors] JS-rendered external portal - will use Firecrawl`);
+      // Check if this page actually has job links in HTML
+      // Some SuccessFactors pages (like career2.successfactors.eu) are JS-rendered with no HTML job links
+      const hasJobLinks = html.includes('jobTitle-link') || html.includes('/job/');
+      if (!hasJobLinks && startRow === 0) {
+        console.log(`  [SuccessFactors] No job links in HTML - JS-rendered page, will use Firecrawl`);
         return null; // Signal to use Firecrawl
       }
       
