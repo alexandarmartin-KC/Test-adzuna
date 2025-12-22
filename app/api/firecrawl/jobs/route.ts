@@ -25,8 +25,9 @@ const CRAWL_URLS = [
   "https://www.canon.se/careers/",
 ];
 
-// Firecrawl extraction schema
+// Firecrawl extraction schema (JSON Schema draft-07 compatible)
 const EXTRACTION_SCHEMA = {
+  "$schema": "http://json-schema.org/draft-07/schema#",
   type: "object",
   properties: {
     jobs: {
@@ -39,13 +40,15 @@ const EXTRACTION_SCHEMA = {
           country: { type: "string" },
           location: { type: "string" },
           department: { type: "string" },
-          url: { type: "string", format: "uri" }
+          url: { type: "string" }
         },
-        required: ["title", "company", "url"]
+        required: ["title", "company", "url"],
+        additionalProperties: false
       }
     }
   },
-  required: ["jobs"]
+  required: ["jobs"],
+  additionalProperties: false
 };
 
 // Extraction prompt
