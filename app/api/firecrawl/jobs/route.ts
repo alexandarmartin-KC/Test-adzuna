@@ -423,8 +423,22 @@ async function crawlJobs(): Promise<Job[]> {
         }
       }
       
-      allJobs.push(...companyJobs);
-      console.log(`Successfully crawled ${company.name}, found ${companyJobs.length} jobs`);
+      // Deduplicate jobs based on title + location + company
+      const uniqueJobs = Array.from(
+        new Map(
+          companyJobs.map(job => [
+            `${job.company}-${job.title}-${job.location}`.toLowerCase(),
+            job
+          ])
+        ).values()
+      );
+      
+      if (uniqueJobs.length < companyJobs.length) {
+        console.log(`Removed ${companyJobs.length - uniqueJobs.length} duplicate jobs for ${company.name}`);
+      }
+      
+      allJobs.push(...uniqueJobs);
+      console.log(`Successfully crawled ${company.name}, found ${uniqueJobs.length} unique jobs (${companyJobs.length} total before dedup)`);
     } catch (error) {
       console.error(`Error crawling ${company.name} (${careersUrl}):`, error);
     }
