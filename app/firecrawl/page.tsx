@@ -189,7 +189,7 @@ export default function FirecrawlPage() {
         </div>
 
         {/* Fetch Button */}
-        <div>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
           <button
             onClick={fetchJobs}
             disabled={loading}
@@ -205,6 +205,47 @@ export default function FirecrawlPage() {
             }}
           >
             {loading ? "Loading..." : "Fetch Jobs"}
+          </button>
+          <button
+            onClick={async () => {
+              setLoading(true);
+              setError(null);
+              try {
+                const params = new URLSearchParams();
+                if (companyFilter !== "all") params.append("company", companyFilter);
+                if (countryFilter !== "all") params.append("country", countryFilter);
+                if (searchQuery.trim()) params.append("q", searchQuery.trim());
+                params.append("recrawl", "true");
+                
+                const response = await fetch(`/api/firecrawl/jobs?${params.toString()}`);
+                if (!response.ok) {
+                  const errorData = await response.json();
+                  throw new Error(errorData.message || "Failed to recrawl");
+                }
+                const data = await response.json();
+                setJobs(data.jobs);
+                setCacheInfo(`Fresh data crawled at ${new Date().toLocaleString()}`);
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "An unknown error occurred");
+                setJobs([]);
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading}
+            title="Force a fresh crawl (uses Firecrawl credits)"
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: loading ? "#ccc" : "#ff6b35",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              fontSize: "1rem",
+              cursor: loading ? "not-allowed" : "pointer",
+              fontWeight: "500",
+            }}
+          >
+            🔄 Recrawl
           </button>
         </div>
       </div>
