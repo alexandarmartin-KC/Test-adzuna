@@ -47,7 +47,7 @@ const COMPANIES: CompanyConfig[] = [
     domain: "https://matas.career.emply.com",
     careersPath: "/ledige-stillinger",
     country: "DK",
-    scrapeMethod: "firecrawl" // Emply platform uses JS to load jobs
+    scrapeMethod: "direct" // Uses Emply API directly (0 credits!)
   },
   { 
     name: "Canon", 
@@ -184,6 +184,107 @@ async function detectScrapeMethod(company: CompanyConfig): Promise<"direct" | "f
   } catch (error) {
     console.log(`  ${company.name}: Fetch failed - needs Firecrawl`);
     return "firecrawl";
+  }
+}
+
+
+/**
+ * Scrape jobs from Emply career platform
+ * Uses their internal API to get all jobs (no credits needed!)
+ */
+async function scrapeEmplyJobs(company: CompanyConfig): Promise<Job[]> {
+  const baseUrl = company.domain;
+  const careersUrl = `${baseUrl}${company.careersPath || ''}`;
+  console.log(`Scraping Emply platform for ${company.name}...`);
+  
+  try {
+    // First, get the page to find the sectionId
+    const pageResponse = await fetch(careersUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+      },
+    });
+    
+    if (!pageResponse.ok) {
+      console.log(`  Failed to fetch Emply page: ${pageResponse.status}`);
+      return [];
+    }
+    
+    const html = await pageResponse.text();
+    
+    // Extract sectionId from the page
+    const sectionIdMatch = html.match(/sectionId:\s*['"]([^'"]+)['"]/);
+    if (!sectionIdMatch) {
+      console.log(`  Could not find sectionId in Emply page`);
+      return [];
+    }
+    
+    const sectionId = sectionIdMatch[1];
+    console.log(`  Found sectionId: ${sectionId}`);
+    
+    // Fetch all jobs from the API (pagination)
+    const allJobs: Job[] = [];
+    let offset = 0;
+    const batchSize = 50; // Get more per request
+    let totalJobs = 0;
+    
+    do {
+      const apiResponse = await fetch(`${baseUrl}/api/integration/vacancy/get-page`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          sectionId,
+          offset,
+          filters: []
+        }),
+      });
+      
+      if (!apiResponse.ok) {
+        console.log(`  Emply API error: ${apiResponse.status}`);
+        break;
+      }
+      
+      const data = await apiResponse.json();
+      totalJobs = data.count || 0;
+      const vacancies = data.vacancies || [];
+      
+      console.log(`  Fetched ${vacancies.length} jobs (offset: ${offset}, total: ${totalJobs})`);
+      
+      for (const vacancy of vacancies) {
+        const title = vacancy.title || vacancy.translations?.[0]?.title;
+        const location = vacancy.location || 'Denmark';
+        const shortId = vacancy.shortId;
+        const titleAsUrl = vacancy.titleAsUrl;
+        
+        // Build the job URL
+        const jobUrl = shortId && titleAsUrl 
+          ? `${baseUrl}/ad/${titleAsUrl}/${shortId}`
+          : careersUrl;
+        
+        allJobs.push({
+          title: title || 'Unknown',
+          company: company.name,
+          country: company.country || 'DK',
+          location: location.replace(/, Denmark$/, '').replace(/,\s*\d{4},\s*/, ', '),
+          department: vacancy.department,
+          url: jobUrl,
+        });
+      }
+      
+      offset += vacancies.length;
+      
+    } while (offset < totalJobs);
+    
+    console.log(`  Emply scraping complete: ${allJobs.length} jobs`);
+    return allJobs;
+    
+  } catch (error) {
+    console.error(`Error scraping Emply for ${company.name}:`, error);
+    return [];
   }
 }
 
@@ -506,6 +607,15 @@ async function crawlJobs(): Promise<Job[]> {
       }
       
       if (method === "direct") {
+        // Check if this is an Emply platform
+        if (company.domain.includes('.emply.com') || company.domain.includes('career.emply')) {
+          console.log(`Using Emply API scraping for ${company.name} (no Firecrawl credits used)`);
+          const emplyJobs = await scrapeEmplyJobs(company);
+          allJobs.push(...emplyJobs);
+          console.log(`✅ Successfully scraped ${company.name} via Emply API, found ${emplyJobs.length} jobs (FREE)`);
+          continue;
+        }
+        
         // Use direct HTML scraping (FREE - no Firecrawl credits!)
         console.log(`Using direct HTML scraping for ${company.name} (no Firecrawl credits used)`);
         const directJobs = await scrapeJobsDirectly(company);
