@@ -78,9 +78,23 @@ export default function FirecrawlPage() {
   return (
     <div style={{ padding: "2rem", maxWidth: "1400px", margin: "0 auto" }}>
       {/* Header */}
-      <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>
-        Firecrawl Job Search
-      </h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+        <h1 style={{ fontSize: "2rem", margin: 0 }}>
+          Firecrawl Job Search
+        </h1>
+        {jobs.length > 0 && (
+          <div style={{
+            backgroundColor: "#0070f3",
+            color: "white",
+            padding: "0.5rem 1rem",
+            borderRadius: "20px",
+            fontWeight: "bold",
+            fontSize: "1.1rem"
+          }}>
+            {jobs.length} {jobs.length === 1 ? "Job" : "Jobs"}
+          </div>
+        )}
+      </div>
       <p style={{ color: "#666", marginBottom: "2rem" }}>
         Search jobs from Ørsted and Canon career pages. Data is crawled once and cached
         for performance. Use filters to narrow down results.
