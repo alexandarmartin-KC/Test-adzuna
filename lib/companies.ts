@@ -16,7 +16,7 @@ export const COMPANIES: CompanyConfig[] = [
   { name: "Ørsted", careersUrl: "https://orsted.com/en/careers/vacancies-list" },
   { name: "Novo Nordisk", careersUrl: "https://careers.novonordisk.com/search/?q=&locationsearch=denmark", country: "DK" },
   { name: "Matas", careersUrl: "matas.dk", country: "DK" },  // Auto-discovers Emply!
-  { name: "Carlsberg", careersUrl: "carlsberggroup.com", country: "DK" },  // Test auto-discovery
+  { name: "Carlsberg", careersUrl: "https://careers.carlsberg.com/CarlsbergDK/search/?q=&locale=en_GB", country: "DK" },  // SuccessFactors with pagination
   // Add more: { name: "Company", careersUrl: "https://..." or just "domain.com" },
 ];
 

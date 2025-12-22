@@ -308,7 +308,7 @@ async function scrapeEmply(careersUrl: string, companyName: string, country: str
 
 
 // ============================================================
-// SUCCESSFACTORS SCRAPER (Novo Nordisk, etc.) - Direct HTML, 0 credits!
+// SUCCESSFACTORS SCRAPER (Novo Nordisk, Carlsberg, etc.) - Direct HTML, 0 credits!
 // Returns null if site needs Firecrawl (JS-rendered), returns Job[] otherwise
 // ============================================================
 
@@ -317,57 +317,102 @@ async function scrapeSuccessFactors(careersUrl: string, companyName: string, cou
   console.log(`  [SuccessFactors] Scraping ${companyName}...`);
   
   try {
-    const response = await fetch(careersUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-    });
-    
-    if (!response.ok) {
-      console.log(`  [SuccessFactors] HTTP ${response.status}`);
-      return null; // Let Firecrawl try
-    }
-    const html = await response.text();
-    
     const jobs: Job[] = [];
     const seenUrls = new Set<string>();
     
-    // Check if this is a JS-rendered SuccessFactors (career2.successfactors.eu style)
-    // These pages don't have job links in HTML - return null to trigger Firecrawl fallback
-    if (html.includes('career2.successfactors.eu') || html.includes('career_company=')) {
-      console.log(`  [SuccessFactors] JS-rendered external portal - will use Firecrawl`);
-      return null; // Signal to use Firecrawl
-    }
+    // Handle pagination - careers.carlsberg.com uses startrow parameter
+    const isPaginated = careersUrl.includes('/search/') || careersUrl.includes('search?');
+    let startRow = 0;
+    const pageSize = 10;
+    let hasMore = true;
     
-    // Extract jobs - match href first, then class (works for careers.*.com SuccessFactors)
-    const regex = /href="(\/job\/[^"]+)"[^>]*class="jobTitle-link"[^>]*>([^<]+)<\/a>/g;
-    let match;
-    
-    while ((match = regex.exec(html)) !== null) {
-      const jobPath = match[1];
-      const title = match[2].trim();
-      if (!seenUrls.has(jobPath)) {
-        seenUrls.add(jobPath);
+    while (hasMore) {
+      const pageUrl = isPaginated 
+        ? `${careersUrl}${careersUrl.includes('?') ? '&' : '?'}startrow=${startRow}`
+        : careersUrl;
+      
+      const response = await fetch(pageUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+      });
+      
+      if (!response.ok) {
+        console.log(`  [SuccessFactors] HTTP ${response.status}`);
+        if (jobs.length === 0) return null; // Let Firecrawl try
+        break;
+      }
+      const html = await response.text();
+      
+      // Check if this is a JS-rendered SuccessFactors (career2.successfactors.eu style)
+      if (html.includes('career2.successfactors.eu') || html.includes('career_company=')) {
+        console.log(`  [SuccessFactors] JS-rendered external portal - will use Firecrawl`);
+        return null; // Signal to use Firecrawl
+      }
+      
+      const beforeCount = seenUrls.size;
+      
+      // Pattern 1: Standard SuccessFactors - /job/Location-Title/ID/
+      // Pattern 2: Carlsberg-style - /CarlsbergDK/job/Location-Title/ID/
+      const jobRegex = /href="(\/(?:[^"\/]+\/)?job\/[^"]+)"[^>]*class="jobTitle-link[^"]*"[^>]*>([^<]+)/gi;
+      let match;
+      
+      while ((match = jobRegex.exec(html)) !== null) {
+        const jobPath = match[1];
+        const title = match[2].trim();
         
-        // Extract location from path: /job/Location-Title/123/
-        const pathParts = decodeURIComponent(jobPath).split('/').filter(p => p && p !== 'job');
-        const location = pathParts[0]?.split('-')[0] || 'Denmark';
+        if (!seenUrls.has(jobPath)) {
+          seenUrls.add(jobPath);
+          
+          // Extract location from path: /job/Location-Title/123/ or /CarlsbergDK/job/Location-Title/123/
+          const pathParts = decodeURIComponent(jobPath).split('/').filter(p => p && p !== 'job' && !p.match(/^Carlsberg/i));
+          const locationPart = pathParts[0] || '';
+          const location = locationPart.split('-')[0] || country;
+          
+          jobs.push({
+            title,
+            company: companyName,
+            country: country,
+            location,
+            url: `${baseUrl}${jobPath}`,
+          });
+        }
+      }
+      
+      // Also try alternative pattern with href after class
+      const altRegex = /class="jobTitle-link[^"]*"[^>]*href="(\/(?:[^"\/]+\/)?job\/[^"]+)"[^>]*>([^<]+)/gi;
+      while ((match = altRegex.exec(html)) !== null) {
+        const jobPath = match[1];
+        const title = match[2].trim();
         
-        jobs.push({
-          title,
-          company: companyName,
-          country: country,
-          location,
-          url: `${baseUrl}${jobPath}`,
-        });
+        if (!seenUrls.has(jobPath)) {
+          seenUrls.add(jobPath);
+          const pathParts = decodeURIComponent(jobPath).split('/').filter(p => p && p !== 'job' && !p.match(/^Carlsberg/i));
+          const location = pathParts[0]?.split('-')[0] || country;
+          
+          jobs.push({
+            title,
+            company: companyName,
+            country: country,
+            location,
+            url: `${baseUrl}${jobPath}`,
+          });
+        }
+      }
+      
+      // Check if we got new jobs on this page
+      const newJobsOnPage = seenUrls.size - beforeCount;
+      
+      // Stop if no pagination or no new jobs found
+      if (!isPaginated || newJobsOnPage === 0) {
+        hasMore = false;
+      } else {
+        startRow += pageSize;
+        // Safety limit to avoid infinite loops
+        if (startRow > 500) hasMore = false;
       }
     }
     
-    // Also extract locations if available
-    const locationRegex = /<span class="jobLocation">\s*([^<]+)\s*<\/span>/g;
-    const locations: string[] = [];
-    while ((match = locationRegex.exec(html)) !== null) {
-      locations.push(match[1].trim());
-    }
-    jobs.forEach((job, i) => { if (locations[i]) job.location = locations[i]; });
+    // Also extract locations if available (for non-paginated pages)
+    // This is a secondary pass for pages with separate location elements
     
     console.log(`  [SuccessFactors] Found ${jobs.length} jobs (FREE - 0 credits)`);
     return jobs;
