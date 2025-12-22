@@ -109,7 +109,21 @@ async function discoverCareersPage(inputUrl: string): Promise<string> {
     
     const html = await response.text();
     
-    // Look for careers links in HTML
+    // Method 1: Look for direct career platform URLs (highest priority)
+    const platformMatches = html.match(/https?:\/\/[^"'\s]+\.emply\.com[^"'\s]*/g) ||
+                           html.match(/https?:\/\/[^"'\s]+successfactors[^"'\s]*/g) ||
+                           html.match(/https?:\/\/[^"'\s]+greenhouse\.io[^"'\s]*/g) ||
+                           html.match(/https?:\/\/[^"'\s]+lever\.co[^"'\s]*/g) ||
+                           html.match(/https?:\/\/[^"'\s]+workday[^"'\s]*/g);
+    
+    if (platformMatches && platformMatches.length > 0) {
+      // Clean and return the first platform URL
+      const cleanUrl = platformMatches[0].replace(/["'>\s].*$/, '');
+      console.log(`  [Discovery] Found career platform URL: ${cleanUrl}`);
+      return cleanUrl;
+    }
+    
+    // Method 2: Look for careers links in HTML
     const linkRegex = /<a[^>]+href=["']([^"']+)["'][^>]*>([^<]*)<\/a>/gi;
     let match;
     const foundLinks: { url: string; score: number }[] = [];
@@ -166,7 +180,7 @@ async function discoverCareersPage(inputUrl: string): Promise<string> {
       return foundLinks[0].url;
     }
     
-    // Try common paths as fallback
+    // Method 3: Try common paths as fallback
     for (const path of COMMON_CAREERS_PATHS) {
       try {
         const testUrl = origin + path;
