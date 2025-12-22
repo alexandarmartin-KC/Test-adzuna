@@ -69,7 +69,7 @@ Extract ALL jobs, not just the first 10.`;
 const CAREERS_KEYWORDS = [
   'karriere', 'career', 'careers', 'jobs', 'job', 'ledige-stillinger', 
   'vacancies', 'work-with-us', 'join-us', 'join-our-team', 'arbejd-hos-os',
-  'stillinger', 'positions', 'opportunities', 'recruitment', 'hiring'
+  'stillinger', 'positions', 'opportunities', 'recruitment', 'hiring', 'search'
 ];
 
 const JOBS_PAGE_KEYWORDS = [
@@ -335,13 +335,16 @@ async function scrapeSuccessFactors(careersUrl: string, companyName: string, cou
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
     });
     
-    if (!response.ok) return [];
+    if (!response.ok) {
+      console.log(`  [SuccessFactors] HTTP ${response.status}`);
+      return [];
+    }
     const html = await response.text();
     
     const jobs: Job[] = [];
     const seenUrls = new Set<string>();
     
-    // Extract jobs with jobTitle-link class
+    // Extract jobs - match href first, then class
     const regex = /href="(\/job\/[^"]+)"[^>]*class="jobTitle-link"[^>]*>([^<]+)<\/a>/g;
     let match;
     
