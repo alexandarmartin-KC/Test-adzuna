@@ -423,19 +423,31 @@ async function crawlJobs(): Promise<Job[]> {
         }
       }
       
-      // Deduplicate jobs based on URL (unique identifier)
-      // This allows multiple jobs with same title/location if they have different URLs
+      // Deduplicate jobs using hybrid approach:
+      // - Use URL as primary key if it's a specific job URL (not just careers page)
+      // - Fall back to title+location if URL is generic (allows multiple jobs with same title/location)
       const uniqueJobs = Array.from(
         new Map(
-          companyJobs.map(job => [
-            job.url, // Use URL as unique key
-            job
-          ])
+          companyJobs.map(job => {
+            // Check if this is a specific job URL
+            const isSpecificUrl = job.url !== careersUrl && 
+              (job.url.toLowerCase().includes('/job/') ||
+               job.url.toLowerCase().includes('jobid') ||
+               job.url.toLowerCase().includes('vacancy') ||
+               job.url.toLowerCase().includes('position'));
+            
+            // Use URL if specific, otherwise use title+location to allow duplicates
+            const key = isSpecificUrl 
+              ? job.url 
+              : `${job.company}-${job.title}-${job.location}`.toLowerCase();
+            
+            return [key, job];
+          })
         ).values()
       );
       
       if (uniqueJobs.length < companyJobs.length) {
-        console.log(`Removed ${companyJobs.length - uniqueJobs.length} duplicate jobs for ${company.name} (same URL)`);
+        console.log(`Removed ${companyJobs.length - uniqueJobs.length} duplicate jobs for ${company.name}`);
       }
       
       allJobs.push(...uniqueJobs);
