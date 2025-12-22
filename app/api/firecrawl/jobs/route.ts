@@ -31,10 +31,10 @@ const COMPANIES: CompanyConfig[] = [
   },
   { 
     name: "Novo Nordisk", 
-    domain: "https://www.novonordisk.com",
-    careersPath: "/careers/find-a-job/career-search-results.html?countries=Denmark&pageSize=200",
+    domain: "https://careers.novonordisk.com",
+    careersPath: "/search/?createNewAlert=false&q=&locationsearch=denmark",
     country: "DK",
-    maxPages: 1 // pageSize=200 should get all jobs on one page
+    maxPages: 1
   },
   { 
     name: "Canon", 
