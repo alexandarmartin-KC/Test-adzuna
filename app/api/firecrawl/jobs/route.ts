@@ -32,8 +32,8 @@ const COMPANIES: CompanyConfig[] = [
   { 
     name: "Orsted", 
     domain: "https://orsted.com",
-    careersPath: "/en/careers/vacancies-list"
-    // scrapeMethod: "auto" - will detect that Firecrawl is needed (Azure WAF)
+    careersPath: "/en/careers/vacancies-list",
+    scrapeMethod: "firecrawl" // Azure WAF blocks direct scraping - must use Firecrawl
   },
   { 
     name: "Novo Nordisk", 
