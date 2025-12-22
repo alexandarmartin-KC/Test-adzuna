@@ -326,7 +326,8 @@ async function crawlJobs(): Promise<Job[]> {
               prompt: EXTRACTION_PROMPT,
               schema: EXTRACTION_SCHEMA,
             },
-            timeout: 60000, // Increase timeout for pages with many jobs
+            waitFor: 5000, // Wait 5 seconds for JavaScript to render all jobs
+            timeout: 60000,
           }),
         });
 
