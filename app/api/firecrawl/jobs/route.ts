@@ -226,7 +226,7 @@ function detectPlatform(url: string, html?: string): Platform {
   
   // URL-based detection
   if (lower.includes('.emply.com') || lower.includes('career.emply')) return "emply";
-  if (lower.includes('successfactors') || lower.includes('jobs.sap.com')) return "successfactors";
+  if (lower.includes('successfactors') || lower.includes('jobs.sap.com') || lower.includes('careers.novonordisk')) return "successfactors";
   if (lower.includes('greenhouse.io') || lower.includes('boards.greenhouse')) return "greenhouse";
   if (lower.includes('myworkdayjobs.com') || lower.includes('.wd')) return "workday";
   if (lower.includes('lever.co') || lower.includes('jobs.lever')) return "lever";
@@ -309,9 +309,10 @@ async function scrapeEmply(careersUrl: string, companyName: string, country: str
 
 // ============================================================
 // SUCCESSFACTORS SCRAPER (Novo Nordisk, etc.) - Direct HTML, 0 credits!
+// Returns null if site needs Firecrawl (JS-rendered), returns Job[] otherwise
 // ============================================================
 
-async function scrapeSuccessFactors(careersUrl: string, companyName: string, country: string): Promise<Job[]> {
+async function scrapeSuccessFactors(careersUrl: string, companyName: string, country: string): Promise<Job[] | null> {
   const baseUrl = new URL(careersUrl).origin;
   console.log(`  [SuccessFactors] Scraping ${companyName}...`);
   
@@ -322,7 +323,7 @@ async function scrapeSuccessFactors(careersUrl: string, companyName: string, cou
     
     if (!response.ok) {
       console.log(`  [SuccessFactors] HTTP ${response.status}`);
-      return [];
+      return null; // Let Firecrawl try
     }
     const html = await response.text();
     
@@ -330,10 +331,10 @@ async function scrapeSuccessFactors(careersUrl: string, companyName: string, cou
     const seenUrls = new Set<string>();
     
     // Check if this is a JS-rendered SuccessFactors (career2.successfactors.eu style)
-    // These pages don't have job links in HTML - return empty to trigger Firecrawl fallback
+    // These pages don't have job links in HTML - return null to trigger Firecrawl fallback
     if (html.includes('career2.successfactors.eu') || html.includes('career_company=')) {
       console.log(`  [SuccessFactors] JS-rendered external portal - will use Firecrawl`);
-      return []; // Let Firecrawl handle this
+      return null; // Signal to use Firecrawl
     }
     
     // Extract jobs - match href first, then class (works for careers.*.com SuccessFactors)
@@ -372,7 +373,7 @@ async function scrapeSuccessFactors(careersUrl: string, companyName: string, cou
     return jobs;
   } catch (error) {
     console.error(`  [SuccessFactors] Error:`, error);
-    return [];
+    return null; // Let Firecrawl try
   }
 }
 
@@ -529,7 +530,14 @@ async function crawlSingleCompany(company: CompanyConfig, apiKey: string): Promi
         jobs = await scrapeEmply(careersUrl, company.name, country);
         break;
       case "successfactors":
-        jobs = await scrapeSuccessFactors(careersUrl, company.name, country);
+        const sfJobs = await scrapeSuccessFactors(careersUrl, company.name, country);
+        if (sfJobs === null) {
+          // JS-rendered site, fall back to Firecrawl
+          console.log(`  [Fallback] Using Firecrawl for JS-rendered SuccessFactors`);
+          jobs = await scrapeWithFirecrawl(careersUrl, company.name, country, apiKey);
+        } else {
+          jobs = sfJobs;
+        }
         break;
       case "greenhouse":
       case "workday":
