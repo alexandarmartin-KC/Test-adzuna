@@ -326,22 +326,8 @@ async function crawlJobs(): Promise<Job[]> {
               prompt: EXTRACTION_PROMPT,
               schema: EXTRACTION_SCHEMA,
             },
-            waitFor: 3000,
+            waitFor: 2000,
             timeout: 60000,
-            // Actions to handle infinite scroll / "Load More" buttons
-            actions: [
-              { type: "wait", milliseconds: 2000 },
-              { type: "scroll", direction: "down" },
-              { type: "wait", milliseconds: 1000 },
-              { type: "scroll", direction: "down" },
-              { type: "wait", milliseconds: 1000 },
-              { type: "scroll", direction: "down" },
-              { type: "wait", milliseconds: 1000 },
-              { type: "scroll", direction: "down" },
-              { type: "wait", milliseconds: 1000 },
-              { type: "scroll", direction: "down" },
-              { type: "wait", milliseconds: 2000 },
-            ],
           }),
         });
 
