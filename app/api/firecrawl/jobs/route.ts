@@ -638,17 +638,37 @@ async function crawlJobs(): Promise<Job[]> {
             // 2. If still using base URL, match job title to links
             if (jobUrl === careersUrl && jobLinks.length > 0 && job.title) {
               const titleSlug = titleToSlug(job.title);
+              const titleWords = titleSlug.split('-').filter(w => w.length > 2);
               
-              // Find a link that contains the job title slug
-              const matchedLink = jobLinks.find((link: string) => {
+              // Find a link that best matches the job title
+              // Score each link by how many title words it contains
+              let bestMatch: { link: string; score: number } | null = null;
+              
+              for (const link of jobLinks) {
                 const linkSlug = link.toLowerCase().split('/').pop() || '';
-                // Check if title slug is contained in the link
-                return linkSlug.includes(titleSlug) || 
-                       titleSlug.split('-').filter(w => w.length > 3).some(word => linkSlug.includes(word));
-              });
+                
+                // Exact match is best
+                if (linkSlug.includes(titleSlug)) {
+                  bestMatch = { link, score: 1000 };
+                  break;
+                }
+                
+                // Count matching words (require at least 2 significant words to match)
+                const matchingWords = titleWords.filter(word => linkSlug.includes(word));
+                const score = matchingWords.length;
+                
+                // Only consider if at least 2 words match (or all words for short titles)
+                const minRequired = Math.min(2, titleWords.length);
+                if (score >= minRequired && (!bestMatch || score > bestMatch.score)) {
+                  bestMatch = { link, score };
+                }
+              }
               
-              if (matchedLink) {
-                jobUrl = matchedLink;
+              if (bestMatch) {
+                jobUrl = bestMatch.link;
+                // Remove from jobLinks so same link isn't reused for another job
+                const idx = jobLinks.indexOf(bestMatch.link);
+                if (idx > -1) jobLinks.splice(idx, 1);
               }
             }
             
