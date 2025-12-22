@@ -320,14 +320,15 @@ async function scrapeSuccessFactors(careersUrl: string, companyName: string, cou
     const jobs: Job[] = [];
     const seenUrls = new Set<string>();
     
-    // Handle pagination - careers.carlsberg.com uses startrow parameter
-    const isPaginated = careersUrl.includes('/search/') || careersUrl.includes('search?');
+    // Handle pagination - only for sites that use startrow pagination (Carlsberg style)
+    // Novo Nordisk shows all jobs on one page
+    const isPaginated = careersUrl.includes('careers.carlsberg.com') || careersUrl.includes('startrow');
     let startRow = 0;
     const pageSize = 10;
     let hasMore = true;
     
     while (hasMore) {
-      const pageUrl = isPaginated 
+      const pageUrl = isPaginated && startRow > 0
         ? `${careersUrl}${careersUrl.includes('?') ? '&' : '?'}startrow=${startRow}`
         : careersUrl;
       
