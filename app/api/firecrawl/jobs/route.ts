@@ -21,6 +21,7 @@ interface CompanyConfig {
   country?: string;
   careersPath?: string; // Optional: if we know the careers path
   maxPages?: number; // Optional: max pages to crawl for pagination (default: 1)
+  directScrape?: boolean; // Use direct HTML scraping instead of Firecrawl (saves credits)
 }
 
 const COMPANIES: CompanyConfig[] = [
@@ -31,10 +32,10 @@ const COMPANIES: CompanyConfig[] = [
   },
   { 
     name: "Novo Nordisk", 
-    domain: "https://www.novonordisk.com",
-    careersPath: "/careers/find-a-job/career-search-results.html?countries=Denmark",
+    domain: "https://careers.novonordisk.com",
+    careersPath: "/search/?q=&locationsearch=denmark",
     country: "DK",
-    maxPages: 1
+    directScrape: true // Use direct HTML scraping - no Firecrawl credits!
   },
   { 
     name: "Canon", 
@@ -103,6 +104,82 @@ REQUIREMENTS:
 - If you see 53 jobs on the page, return all 53 jobs
 
 Return JSON with a "jobs" array containing ALL positions found.`;
+
+
+/**
+ * Direct HTML scraping for SuccessFactors sites (like Novo Nordisk)
+ * No Firecrawl credits used!
+ */
+async function scrapeSuccessFactorsJobs(company: CompanyConfig): Promise<Job[]> {
+  const url = `${company.domain}${company.careersPath}`;
+  console.log(`Direct scraping ${company.name} from ${url}...`);
+  
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; JobCrawler/1.0)',
+        'Accept': 'text/html,application/xhtml+xml',
+      },
+    });
+    
+    if (!response.ok) {
+      console.error(`Failed to fetch ${url}: ${response.status}`);
+      return [];
+    }
+    
+    const html = await response.text();
+    const jobs: Job[] = [];
+    
+    // Parse job listings from SuccessFactors HTML
+    // Pattern: <a href="/job/Location-Title-ID/123456/" class="jobTitle-link">Title</a>
+    // followed by <span class="jobLocation">Location</span>
+    
+    // Extract all job links and titles
+    const jobLinkRegex = /href="(\/job\/[^"]+)"[^>]*class="jobTitle-link"[^>]*>([^<]+)<\/a>/g;
+    const locationRegex = /<span class="jobLocation">\s*([^<]+)\s*<\/span>/g;
+    
+    // Get all job links (deduplicate as they appear twice in HTML)
+    const jobMatches = new Map<string, { url: string; title: string }>();
+    let match;
+    while ((match = jobLinkRegex.exec(html)) !== null) {
+      const jobUrl = match[1];
+      const title = match[2].trim();
+      if (!jobMatches.has(jobUrl)) {
+        jobMatches.set(jobUrl, { url: jobUrl, title });
+      }
+    }
+    
+    // Get all locations
+    const locations: string[] = [];
+    while ((match = locationRegex.exec(html)) !== null) {
+      const location = match[1].trim();
+      if (location && !location.includes('<') && location.length > 2) {
+        locations.push(location);
+      }
+    }
+    
+    // Match jobs with locations
+    let locationIndex = 0;
+    for (const [jobPath, jobData] of jobMatches) {
+      const location = locations[locationIndex] || 'Denmark';
+      locationIndex++;
+      
+      jobs.push({
+        title: jobData.title,
+        company: company.name,
+        country: company.country || 'DK',
+        location: location,
+        url: `${company.domain}${jobPath}`,
+      });
+    }
+    
+    console.log(`Direct scrape found ${jobs.length} jobs for ${company.name}`);
+    return jobs;
+  } catch (error) {
+    console.error(`Error scraping ${company.name}:`, error);
+    return [];
+  }
+}
 
 
 /**
@@ -278,10 +355,20 @@ async function crawlJobs(): Promise<Job[]> {
 
   // Process each company
   for (const company of COMPANIES) {
-    let careersUrl: string | null = null;
-    
     try {
       console.log(`Processing ${company.name} (${company.domain})...`);
+      
+      // Use direct scraping if configured (saves Firecrawl credits!)
+      if (company.directScrape) {
+        console.log(`Using direct HTML scraping for ${company.name} (no Firecrawl credits used)`);
+        const directJobs = await scrapeSuccessFactorsJobs(company);
+        allJobs.push(...directJobs);
+        console.log(`Successfully scraped ${company.name}, found ${directJobs.length} jobs`);
+        continue;
+      }
+      
+      // Otherwise use Firecrawl
+      let careersUrl: string | null = null;
       
       // Discover the careers page
       careersUrl = await discoverCareersPage(company, apiKey);
