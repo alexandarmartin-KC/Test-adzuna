@@ -42,6 +42,16 @@ export default function RootLayout({
           >
             CV Analysis
           </Link>
+          <Link 
+            href="/firecrawl" 
+            style={{
+              color: "white",
+              textDecoration: "none",
+              fontSize: "1rem",
+            }}
+          >
+            Firecrawl
+          </Link>
         </nav>
         {children}
       </body>
