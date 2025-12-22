@@ -485,18 +485,13 @@ async function scrapeWithFirecrawl(careersUrl: string, companyName: string, coun
 // MAIN CRAWLER - Auto-detects platform and uses best method
 // ============================================================
 
-async function crawlJobs(): Promise<Job[]> {
-  const apiKey = process.env.FIRECRAWL_API_KEY;
-  if (!apiKey) throw new Error("FIRECRAWL_API_KEY not configured");
+async function crawlSingleCompany(company: CompanyConfig, apiKey: string): Promise<Job[]> {
+  console.log(`\n=== ${company.name} ===`);
+  console.log(`Input URL: ${company.careersUrl}`);
   
-  const allJobs: Job[] = [];
+  const country = company.country || 'DK';
   
-  for (const company of COMPANIES) {
-    console.log(`\n=== ${company.name} ===`);
-    console.log(`Input URL: ${company.careersUrl}`);
-    
-    const country = company.country || 'DK';
-    
+  try {
     // Auto-discover careers page if needed
     const careersUrl = await discoverCareersPage(company.careersUrl);
     console.log(`Careers URL: ${careersUrl}`);
@@ -538,11 +533,25 @@ async function crawlJobs(): Promise<Job[]> {
       new Map(jobs.map(j => [j.url, j])).values()
     );
     
-    allJobs.push(...uniqueJobs);
     console.log(`✅ ${company.name}: ${uniqueJobs.length} jobs`);
+    return uniqueJobs;
+  } catch (error) {
+    console.error(`❌ ${company.name}: Error -`, error);
+    return [];
   }
+}
+
+async function crawlJobs(): Promise<Job[]> {
+  const apiKey = process.env.FIRECRAWL_API_KEY;
+  if (!apiKey) throw new Error("FIRECRAWL_API_KEY not configured");
   
-  return allJobs;
+  // Run all companies in parallel for speed
+  const results = await Promise.all(
+    COMPANIES.map(company => crawlSingleCompany(company, apiKey))
+  );
+  
+  // Flatten results
+  return results.flat();
 }
 
 
