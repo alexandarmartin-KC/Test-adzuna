@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { COMPANIES, CompanyConfig } from "@/lib/companies";
+import puppeteer from 'puppeteer';
+import { scrapeWorkdayCompany } from "@/lib/workdayConnector";
+import { 
+  fetchJobsWithFallback, 
+  getCompanyStatus, 
+  WORKDAY_FALLBACK_REGISTRY 
+} from "@/lib/workdayFallback";
+import { scrapeWorkdayWithApify } from "@/lib/apifyConnector";
+
 
 export const dynamic = 'force-dynamic';
 
@@ -44,7 +53,8 @@ const EXTRACTION_SCHEMA = {
 
 const EXTRACTION_PROMPT = `Extract ALL job postings from this careers page.
 For each job: title (REQUIRED), location, department, url to apply.
-Extract ALL jobs, not just the first 10.`;
+Extract EVERY SINGLE job on the page - if you see 50+ jobs, extract all 50+.
+Do not stop at 10-15 jobs. Extract everything visible.`;
 
 
 // ============================================================
@@ -75,10 +85,13 @@ async function discoverCareersPage(inputUrl: string): Promise<string> {
   
   const urlObj = new URL(baseUrl);
   const origin = urlObj.origin;
-  
-  // If URL already looks like a careers page, use it
   const pathLower = urlObj.pathname.toLowerCase();
-  if (CAREERS_KEYWORDS.some(kw => pathLower.includes(kw))) {
+  
+  // If URL already looks like a careers page OR is a jobs subdomain, use it directly
+  if (CAREERS_KEYWORDS.some(kw => pathLower.includes(kw)) || 
+      origin.toLowerCase().includes('jobs.') ||
+      origin.toLowerCase().includes('careers.') ||
+      origin.toLowerCase().includes('karriere.')) {
     console.log(`  [Discovery] URL already looks like careers page: ${baseUrl}`);
     return baseUrl;
   }
@@ -229,7 +242,7 @@ function detectPlatform(url: string, html?: string): Platform {
   if (lower.includes('successfactors') || lower.includes('jobs.sap.com') || lower.includes('careers.novonordisk')) return "successfactors";
   if (lower.includes('greenhouse.io') || lower.includes('boards.greenhouse')) return "greenhouse";
   if (lower.includes('myworkdayjobs.com') || lower.includes('.wd')) return "workday";
-  if (lower.includes('lever.co') || lower.includes('jobs.lever')) return "lever";
+  if (lower.includes('lever.co') || lower.includes('jobs.lever') || lower.includes('jobs.arla')) return "lever";
   
   // HTML-based detection
   if (html) {
@@ -237,7 +250,7 @@ function detectPlatform(url: string, html?: string): Platform {
     if (html.includes('jobTitle-link') || html.includes('class="jobLocation"')) return "successfactors";
     if (html.includes('greenhouse')) return "greenhouse";
     if (html.includes('workday')) return "workday";
-    if (html.includes('lever.co')) return "lever";
+    if (html.includes('lever.co') || html.includes('jobs.lever')) return "lever";
   }
   
   return "unknown";
@@ -436,13 +449,281 @@ async function scrapeSuccessFactors(careersUrl: string, companyName: string, cou
 
 
 // ============================================================
+// LEVER SCRAPER - Auto-handles pagination (FREE - 0 credits!)
+// ============================================================
+
+async function scrapeLever(careersUrl: string, companyName: string, country: string): Promise<Job[] | null> {
+  console.log(`  [Lever] Scraping ${companyName}...`);
+  
+  try {
+    // Lever typically hosts at jobs.lever.co or custom domain
+    // Try to find the API endpoint
+    let apiUrl = careersUrl;
+    
+    // If it's a custom domain like jobs.arla.com, find the actual Lever endpoint
+    if (!careersUrl.includes('lever.co')) {
+      const pageResp = await fetch(careersUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+      });
+      if (!pageResp.ok) return null;
+      
+      const html = await pageResp.text();
+      
+      // Look for Lever API calls in the HTML
+      const apiMatch = html.match(/https?:\/\/[^"']+lever\.co[^"']*/);
+      if (apiMatch) {
+        apiUrl = apiMatch[0];
+        console.log(`  [Lever] Found Lever URL: ${apiUrl}`);
+      }
+    }
+    
+    // Try the Lever postings API
+    const companySlug = apiUrl.match(/lever\.co\/([^\/\?]+)/)?.[1] || 
+                        careersUrl.match(/jobs\.([^\.]+)\./)?.[1];
+    
+    if (companySlug) {
+      const apiEndpoint = `https://api.lever.co/v0/postings/${companySlug}?mode=json`;
+      console.log(`  [Lever] Trying API: ${apiEndpoint}`);
+      
+      const apiResp = await fetch(apiEndpoint);
+      if (apiResp.ok) {
+        const data = await apiResp.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const jobs: Job[] = data.map(job => ({
+            title: job.text || job.title || 'Unknown',
+            company: companyName,
+            country: job.categories?.location?.includes('Denmark') || job.categories?.location?.includes('Danmark') 
+              ? 'DK' 
+              : job.categories?.location?.includes('Sweden') || job.categories?.location?.includes('Sverige')
+              ? 'SE'
+              : job.categories?.location?.includes('Norway') || job.categories?.location?.includes('Norge')
+              ? 'NO'
+              : country,
+            location: job.categories?.location || job.location || 'Unknown',
+            department: job.categories?.team || job.categories?.department,
+            url: job.hostedUrl || job.applyUrl || careersUrl,
+          }));
+          
+          console.log(`  [Lever] Found ${jobs.length} jobs via API (FREE - 0 credits)`);
+          return jobs;
+        }
+      }
+    }
+    
+    // If API doesn't work, scrape the page directly
+    console.log(`  [Lever] API failed, trying page scrape...`);
+    const pageResp = await fetch(careersUrl, {
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      }
+    });
+    
+    if (!pageResp.ok) return null;
+    const html = await pageResp.text();
+    
+    // Parse jobs from HTML (Lever has consistent class names)
+    const jobs: Job[] = [];
+    const jobRegex = /<div[^>]*class="[^"]*posting[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>[\s\S]*?<h5[^>]*>([^<]+)<\/h5>[\s\S]*?<span[^>]*class="[^"]*location[^"]*"[^>]*>([^<]+)<\/span>/gi;
+    
+    let match;
+    while ((match = jobRegex.exec(html)) !== null) {
+      const [, url, title, location] = match;
+      jobs.push({
+        title: title.trim(),
+        company: companyName,
+        country: location.includes('Denmark') || location.includes('Danmark') 
+          ? 'DK' 
+          : location.includes('Sweden') || location.includes('Sverige')
+          ? 'SE'
+          : location.includes('Norway') || location.includes('Norge')
+          ? 'NO'
+          : country,
+        location: location.trim(),
+        url: url.startsWith('http') ? url : `${new URL(careersUrl).origin}${url}`,
+      });
+    }
+    
+    if (jobs.length > 0) {
+      console.log(`  [Lever] Found ${jobs.length} jobs via HTML scrape (FREE - 0 credits)`);
+      return jobs;
+    }
+    
+    console.log(`  [Lever] No jobs found with simple scrape, needs Firecrawl`);
+    return null;
+    
+  } catch (error) {
+    console.error(`  [Lever] Error:`, error);
+    return null;
+  }
+}
+
+
+// ============================================================
+// WORKDAY SCRAPER - Puppeteer for bot-protected sites (FREE - 0 credits!)
+// ============================================================
+
+async function scrapeWorkday(careersUrl: string, companyName: string, country: string): Promise<Job[] | null> {
+  console.log(`  [Workday] Scraping ${companyName} with Puppeteer...`);
+  
+  let browser;
+  try {
+    // Launch headless browser
+    browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--disable-gpu',
+      ]
+    });
+    
+    const page = await browser.newPage();
+    
+    // Set realistic viewport and user agent
+    await page.setViewport({ width: 1920, height: 1080 });
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    
+    console.log(`  [Workday] Navigating to ${careersUrl}...`);
+    await page.goto(careersUrl, { 
+      waitUntil: 'networkidle2',
+      timeout: 60000 
+    });
+    
+    // Wait for job listings to load (Workday-specific selectors)
+    console.log(`  [Workday] Waiting for jobs to load...`);
+    try {
+      await page.waitForSelector('li[data-automation-id="compositeContainer"]', { timeout: 15000 });
+    } catch {
+      console.log(`  [Workday] Standard selector not found, trying alternatives...`);
+      // Try alternative selectors
+      try {
+        await page.waitForSelector('[data-automation-id="jobTitle"]', { timeout: 10000 });
+      } catch {
+        // Take screenshot for debugging
+        await page.screenshot({ path: '/tmp/workday-debug.png' });
+        console.log(`  [Workday] No job elements found. Screenshot saved to /tmp/workday-debug.png`);
+        console.log(`  [Workday] Page title: ${await page.title()}`);
+        const content = await page.content();
+        console.log(`  [Workday] Page content length: ${content.length} chars`);
+        console.log(`  [Workday] Content preview: ${content.substring(0, 500)}`);
+      }
+    }
+    
+    // Scroll to trigger lazy loading
+    console.log(`  [Workday] Scrolling to load all jobs...`);
+    await autoScroll(page);
+    
+    // Wait a bit more for any final loads
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    // Extract jobs from the page
+    console.log(`  [Workday] Extracting job data...`);
+    const jobs = await page.evaluate((companyName, country) => {
+      const jobElements = document.querySelectorAll('li[data-automation-id="compositeContainer"]');
+      const extractedJobs: any[] = [];
+      
+      jobElements.forEach(el => {
+        // Extract job title
+        const titleEl = el.querySelector('[data-automation-id="jobTitle"]') || 
+                       el.querySelector('a[data-automation-id="jobTitle"]') ||
+                       el.querySelector('h3');
+        const title = titleEl?.textContent?.trim() || '';
+        
+        if (!title) return; // Skip if no title
+        
+        // Extract location
+        const locationEl = el.querySelector('[data-automation-id="location"]') ||
+                          el.querySelector('.css-1ij37lp') ||
+                          el.querySelector('dd');
+        const location = locationEl?.textContent?.trim() || 'Unknown';
+        
+        // Extract URL
+        const linkEl = el.querySelector('a[data-automation-id="jobTitle"]') || el.querySelector('a');
+        const url = linkEl?.getAttribute('href') || '';
+        
+        // Determine country from location
+        let jobCountry = country;
+        const locLower = location.toLowerCase();
+        if (locLower.includes('denmark') || locLower.includes('danmark') || locLower.includes('billund') || locLower.includes('copenhagen') || locLower.includes('aarhus')) {
+          jobCountry = 'DK';
+        } else if (locLower.includes('sweden') || locLower.includes('sverige') || locLower.includes('stockholm') || locLower.includes('gothenburg')) {
+          jobCountry = 'SE';
+        } else if (locLower.includes('norway') || locLower.includes('norge') || locLower.includes('oslo')) {
+          jobCountry = 'NO';
+        }
+        
+        extractedJobs.push({
+          title,
+          company: companyName,
+          country: jobCountry,
+          location,
+          url: url.startsWith('http') ? url : `${window.location.origin}${url}`,
+        });
+      });
+      
+      return extractedJobs;
+    }, companyName, country);
+    
+    await browser.close();
+    
+    console.log(`  [Workday] Found ${jobs.length} jobs (FREE - 0 credits)`);
+    return jobs;
+    
+  } catch (error) {
+    console.error(`  [Workday] Error:`, error);
+    if (browser) await browser.close().catch(() => {});
+    return null;
+  }
+}
+
+// Helper function for auto-scrolling
+async function autoScroll(page: any) {
+  await page.evaluate(async () => {
+    await new Promise<void>((resolve) => {
+      let totalHeight = 0;
+      const distance = 500;
+      const timer = setInterval(() => {
+        const scrollHeight = document.body.scrollHeight;
+        window.scrollBy(0, distance);
+        totalHeight += distance;
+
+        if (totalHeight >= scrollHeight) {
+          clearInterval(timer);
+          resolve();
+        }
+      }, 300);
+    });
+  });
+}
+
+
+// ============================================================
 // FIRECRAWL SCRAPER - Universal AI scraper (uses credits)
 // ============================================================
 
-async function scrapeWithFirecrawl(careersUrl: string, companyName: string, country: string, apiKey: string): Promise<Job[]> {
+async function scrapeWithFirecrawl(careersUrl: string, companyName: string, country: string, apiKey: string, platform?: Platform): Promise<Job[]> {
   console.log(`  [Firecrawl] Scraping ${companyName} (uses credits)...`);
   
   try {
+    // For Lever and Workday sites, add extensive scrolling/waiting
+    const actions = (platform === "lever" || platform === "workday") ? [
+      { type: "wait", milliseconds: 5000 },
+      { type: "scroll", direction: "down", amount: 2000 },
+      { type: "wait", milliseconds: 3000 },
+      { type: "scroll", direction: "down", amount: 2000 },
+      { type: "wait", milliseconds: 3000 },
+      { type: "scroll", direction: "down", amount: 2000 },
+      { type: "wait", milliseconds: 3000 },
+      { type: "scroll", direction: "down", amount: 2000 },
+      { type: "wait", milliseconds: 3000 },
+      { type: "scroll", direction: "down", amount: 2000 },
+      { type: "wait", milliseconds: 3000 },
+      { type: "scroll", direction: "down", amount: 2000 },
+    ] : undefined;
+    
     const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
       method: "POST",
       headers: {
@@ -456,8 +737,9 @@ async function scrapeWithFirecrawl(careersUrl: string, companyName: string, coun
           prompt: EXTRACTION_PROMPT,
           schema: EXTRACTION_SCHEMA,
         },
-        waitFor: 5000,
-        timeout: 90000,
+        actions,
+        waitFor: platform === "workday" ? 15000 : (platform === "lever" ? 10000 : 5000),
+        timeout: 120000,
       }),
     });
     
@@ -598,18 +880,84 @@ async function crawlSingleCompany(company: CompanyConfig, apiKey: string): Promi
         if (sfJobs === null) {
           // JS-rendered site, fall back to Firecrawl
           console.log(`  [Fallback] Using Firecrawl for JS-rendered SuccessFactors`);
-          jobs = await scrapeWithFirecrawl(careersUrl, company.name, country, apiKey);
+          jobs = await scrapeWithFirecrawl(careersUrl, company.name, country, apiKey, platform);
         } else {
           jobs = sfJobs;
         }
         break;
-      case "greenhouse":
-      case "workday":
       case "lever":
+        const leverJobs = await scrapeLever(careersUrl, company.name, country);
+        if (leverJobs === null || leverJobs.length === 0) {
+          // Lever scraper failed, fall back to Firecrawl
+          console.log(`  [Fallback] Lever scraper failed, using Firecrawl`);
+          jobs = await scrapeWithFirecrawl(careersUrl, company.name, country, apiKey, platform);
+        } else {
+          jobs = leverJobs;
+        }
+        break;
+      case "workday":
+        // Check if company uses fallback system
+        const companyId = company.name.toLowerCase().replace(/\s+/g, '-');
+        const fallbackConfig = WORKDAY_FALLBACK_REGISTRY[companyId];
+        
+        if (fallbackConfig && fallbackConfig.enabled) {
+          console.log(`  [Workday] ${company.name} uses fallback: ${fallbackConfig.fallbackType}`);
+          const fallbackResult = await fetchJobsWithFallback(companyId, company.name, careersUrl);
+          
+          if (fallbackResult.source !== 'BLOCKED' && fallbackResult.jobs.length > 0) {
+            jobs = fallbackResult.jobs;
+            console.log(`  [Workday] ✅ Got ${jobs.length} jobs via ${fallbackResult.source}`);
+            break;
+          } else {
+            console.log(`  [Workday] ⚠️ ${company.name} is blocked - needs feed/partnership`);
+            jobs = [];
+            break;
+          }
+        }
+        
+        // Try Apify if API key available (best for bot-protected sites)
+        const apifyKey = process.env.APIFY_API_KEY;
+        if (apifyKey) {
+          console.log(`  [Workday] Trying Apify for ${company.name}...`);
+          const apifyJobs = await scrapeWorkdayWithApify(careersUrl, company.name, { apiKey: apifyKey });
+          if (apifyJobs && apifyJobs.length > 0) {
+            jobs = apifyJobs.map(aj => ({
+              title: aj.title || 'Unknown',
+              company: company.name,
+              country: country,
+              location: aj.location || 'Unknown',
+              department: undefined,
+              url: aj.url || careersUrl
+            }));
+            console.log(`  [Workday] ✅ Got ${jobs.length} jobs via Apify`);
+            break;
+          }
+        }
+        
+        // Try JSON API scraping (will fail for blocked sites)
+        const workdayJobs = await scrapeWorkdayCompany(careersUrl, company.name);
+        if (workdayJobs && workdayJobs.length > 0) {
+          // Convert Workday format to our Job format
+          jobs = workdayJobs.map(wj => ({
+            title: wj.title,
+            company: wj.company_name,
+            country: wj.primary_country,
+            location: wj.locations.join(', '),
+            department: undefined,
+            url: wj.applyUrl
+          }));
+        } else {
+          // All Workday sites currently blocked - show status message
+          const status = getCompanyStatus(companyId);
+          console.log(`  [Workday] ${status.message}`);
+          jobs = [];
+        }
+        break;
+      case "greenhouse":
       case "unknown":
       default:
         // Use Firecrawl AI for unknown platforms
-        jobs = await scrapeWithFirecrawl(careersUrl, company.name, country, apiKey);
+        jobs = await scrapeWithFirecrawl(careersUrl, company.name, country, apiKey, platform);
     }
     
     // Deduplicate by URL

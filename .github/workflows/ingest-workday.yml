@@ -1,0 +1,61 @@
+name: Ingest Workday Jobs
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      company:
+        description: 'Company ID to ingest (or "all")'
+        required: false
+        default: 'all'
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run ingestion
+        env:
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          APIFY_ACTOR_ID: fantastic-jobs/workday-jobs-api
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          COMPANY="${{ github.event.inputs.company || 'all' }}"
+          npx tsx scripts/ingest-workday-apify.ts "$COMPANY"
+      
+      - name: Check LEGO+DK count
+        if: success()
+        run: |
+          echo "Verifying LEGO+DK job count..."
+          # This will be caught by the script's exit code
+          # Script exits with code 1 if LEGO+DK count is 0
+      
+      - name: Upload metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ingestion-metrics-${{ github.run_id }}
+          path: |
+            ingestion-metrics.json
+          retention-days: 30
+      
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Workday ingestion failed - check logs"
+          echo "LEGO+DK count may have dropped to 0 or API error occurred"

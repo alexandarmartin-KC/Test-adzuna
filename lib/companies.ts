@@ -17,6 +17,8 @@ export const COMPANIES: CompanyConfig[] = [
   { name: "Novo Nordisk", careersUrl: "https://careers.novonordisk.com/search/?q=&locationsearch=denmark", country: "DK" },
   { name: "Matas", careersUrl: "matas.dk", country: "DK" },  // Auto-discovers Emply!
   { name: "Carlsberg", careersUrl: "https://careers.carlsberg.com/CarlsbergDK/search/?q=&locale=en_GB", country: "DK" },  // SuccessFactors with pagination
+  { name: "Arla", careersUrl: "https://jobs.arla.com/", country: "DK" },  // Lever platform
+  { name: "LEGO", careersUrl: "https://lego.wd3.myworkdayjobs.com/LEGO_Careers", country: "DK" },  // Workday JSON API
   // Add more: { name: "Company", careersUrl: "https://..." or just "domain.com" },
 ];
 
