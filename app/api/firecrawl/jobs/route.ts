@@ -401,6 +401,7 @@ async function scrapeSuccessFactors(careersUrl: string, companyName: string, cou
       
       // Check if we got new jobs on this page
       const newJobsOnPage = seenUrls.size - beforeCount;
+      console.log(`  [SuccessFactors] Page at startrow=${startRow}: ${newJobsOnPage} new jobs found`);
       
       // Stop if no pagination or no new jobs found
       if (!isPaginated || newJobsOnPage === 0) {
