@@ -43,6 +43,13 @@ const COMPANIES: CompanyConfig[] = [
     // scrapeMethod: "auto" - will detect that direct scraping works
   },
   { 
+    name: "Matas",
+    domain: "https://matas.career.emply.com",
+    careersPath: "/ledige-stillinger",
+    country: "DK",
+    scrapeMethod: "firecrawl" // Emply platform uses JS to load jobs
+  },
+  { 
     name: "Canon", 
     domain: "https://www.canon.dk",
     country: "DK",
