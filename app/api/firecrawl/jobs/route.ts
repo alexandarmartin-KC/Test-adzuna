@@ -20,7 +20,7 @@ let cacheTimestamp: number | null = null;
 // URLs to crawl
 const CRAWL_URLS = [
   "https://orsted.com/en/careers/vacancies-list",
-  "https://www.canon.dk/careers/",
+  "https://ejqe.fa.em2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/jobs?location=Denmark&locationId=300000000294904&locationLevel=country&mode=location",
   "https://www.canon.no/careers/",
   "https://www.canon.se/careers/",
 ];
