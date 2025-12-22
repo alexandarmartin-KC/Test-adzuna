@@ -30,22 +30,26 @@ const COMPANIES: CompanyConfig[] = [
   },
   { 
     name: "Novo Nordisk", 
-    domain: "https://www.novonordisk.com"
+    domain: "https://www.novonordisk.com",
+    careersPath: "/careers/find-a-job/career-search-results.html"
   },
   { 
     name: "Canon", 
     domain: "https://www.canon.dk",
-    country: "DK"
+    country: "DK",
+    careersPath: "/careers/"
   },
   { 
     name: "Canon", 
     domain: "https://www.canon.no",
-    country: "NO"
+    country: "NO",
+    careersPath: "/careers/"
   },
   { 
     name: "Canon", 
     domain: "https://www.canon.se",
-    country: "SE"
+    country: "SE",
+    careersPath: "/careers/"
   },
 ];
 
@@ -128,6 +132,8 @@ async function discoverCareersPage(company: CompanyConfig, apiKey: string): Prom
   
   const candidateUrls: string[] = [];
   
+  // DISABLED: Map API uses credits - uncomment only if needed
+  /*
   // Use Firecrawl to map the site and find careers pages
   try {
     const response = await fetch("https://api.firecrawl.dev/v1/map", {
@@ -172,6 +178,10 @@ async function discoverCareersPage(company: CompanyConfig, apiKey: string): Prom
   } catch (error) {
     console.error(`Error mapping site for ${company.name}:`, error instanceof Error ? error.message : 'Unknown error');
   }
+  */
+  
+  // Use common paths without expensive map API call
+  console.log(`Using common career page patterns to save credits`);
 
   // Add common paths as candidates
   for (const path of commonPaths) {
@@ -189,11 +199,12 @@ async function discoverCareersPage(company: CompanyConfig, apiKey: string): Prom
   }
 
   // Test each candidate URL by doing a quick scrape to count jobs
-  console.log(`Testing ${candidateUrls.length} candidate URLs for ${company.name}...`);
+  // IMPORTANT: This uses Firecrawl credits! Only test top 3 candidates to save costs
+  console.log(`Testing up to 3 candidate URLs for ${company.name} (to save credits)...`);
   let bestUrl = company.domain;
   let maxJobs = 0;
 
-  for (const testUrl of candidateUrls.slice(0, 10)) { // Limit testing to first 10
+  for (const testUrl of candidateUrls.slice(0, 3)) { // Only test first 3 to save credits
     try {
       const testResponse = await fetch("https://api.firecrawl.dev/v1/scrape", {
         method: "POST",
@@ -223,9 +234,9 @@ async function discoverCareersPage(company: CompanyConfig, apiKey: string): Prom
             bestUrl = testUrl;
           }
           
-          // If we found a page with many jobs, use it immediately
-          if (jobCount >= 20) {
-            console.log(`Found excellent careers page with ${jobCount} jobs: ${bestUrl}`);
+          // If we found a page with jobs, use it immediately to save credits
+          if (jobCount >= 5) {
+            console.log(`Found careers page with ${jobCount} jobs: ${bestUrl} - stopping search to save credits`);
             return bestUrl;
           }
         } catch (jsonError) {
