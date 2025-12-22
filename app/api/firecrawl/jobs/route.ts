@@ -144,27 +144,33 @@ async function discoverCareersPage(company: CompanyConfig, apiKey: string): Prom
     });
 
     if (response.ok) {
-      const data = await response.json();
-      if (data.success && data.links && data.links.length > 0) {
-        // Collect all relevant career links
-        const careersLinks = data.links.filter((link: string) => {
-          const lower = link.toLowerCase();
-          return (lower.includes('career') || 
-                  lower.includes('job') || 
-                  lower.includes('vacan') ||
-                  lower.includes('position') ||
-                  lower.includes('opening')) &&
-                 !lower.includes('blog') &&
-                 !lower.includes('news') &&
-                 !lower.includes('article');
-        });
-        
-        candidateUrls.push(...careersLinks);
-        console.log(`Found ${careersLinks.length} candidate URLs from map`);
+      try {
+        const data = await response.json();
+        if (data.success && data.links && data.links.length > 0) {
+          // Collect all relevant career links
+          const careersLinks = data.links.filter((link: string) => {
+            const lower = link.toLowerCase();
+            return (lower.includes('career') || 
+                    lower.includes('job') || 
+                    lower.includes('vacan') ||
+                    lower.includes('position') ||
+                    lower.includes('opening')) &&
+                   !lower.includes('blog') &&
+                   !lower.includes('news') &&
+                   !lower.includes('article');
+          });
+          
+          candidateUrls.push(...careersLinks);
+          console.log(`Found ${careersLinks.length} candidate URLs from map`);
+        }
+      } catch (jsonError) {
+        console.error(`Failed to parse map response for ${company.name}`);
       }
+    } else {
+      console.log(`Map request failed with status ${response.status} for ${company.name}`);
     }
   } catch (error) {
-    console.error(`Error mapping site for ${company.name}:`, error);
+    console.error(`Error mapping site for ${company.name}:`, error instanceof Error ? error.message : 'Unknown error');
   }
 
   // Add common paths as candidates
@@ -206,23 +212,30 @@ async function discoverCareersPage(company: CompanyConfig, apiKey: string): Prom
       });
 
       if (testResponse.ok) {
-        const testData = await testResponse.json();
-        const jobCount = testData?.data?.extract?.jobs?.length || 0;
-        
-        console.log(`  ${testUrl}: ${jobCount} jobs found`);
-        
-        if (jobCount > maxJobs) {
-          maxJobs = jobCount;
-          bestUrl = testUrl;
+        try {
+          const testData = await testResponse.json();
+          const jobCount = testData?.data?.extract?.jobs?.length || 0;
+          
+          console.log(`  ${testUrl}: ${jobCount} jobs found`);
+          
+          if (jobCount > maxJobs) {
+            maxJobs = jobCount;
+            bestUrl = testUrl;
+          }
+          
+          // If we found a page with many jobs, use it immediately
+          if (jobCount >= 20) {
+            console.log(`Found excellent careers page with ${jobCount} jobs: ${bestUrl}`);
+            return bestUrl;
+          }
+        } catch (jsonError) {
+          console.error(`  ${testUrl}: Failed to parse response`);
         }
-        
-        // If we found a page with many jobs, use it immediately
-        if (jobCount >= 20) {
-          console.log(`Found excellent careers page with ${jobCount} jobs: ${bestUrl}`);
-          return bestUrl;
-        }
+      } else {
+        console.log(`  ${testUrl}: HTTP ${testResponse.status}`);
       }
     } catch (error) {
+      console.error(`  ${testUrl}: ${error instanceof Error ? error.message : 'Failed'}`);
       // Continue to next URL
     }
   }
@@ -283,12 +296,25 @@ async function crawlJobs(): Promise<Job[]> {
 
       if (!response.ok) {
         console.error(`Failed to crawl ${careersUrl}: ${response.status} ${response.statusText}`);
-        const errorText = await response.text();
-        console.error(`Error details: ${errorText}`);
+        try {
+          const errorText = await response.text();
+          console.error(`Error details: ${errorText}`);
+        } catch (e) {
+          console.error(`Could not read error response`);
+        }
         continue;
       }
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error(`Failed to parse JSON response from ${careersUrl}`);
+        const text = await response.text();
+        console.error(`Response was: ${text.substring(0, 200)}...`);
+        continue;
+      }
+      
       console.log(`Response from ${careersUrl}:`, JSON.stringify(data, null, 2));
       
       // Extract jobs from response (Firecrawl v1/scrape format)
