@@ -20,6 +20,7 @@ interface CompanyConfig {
   domain: string;
   country?: string;
   careersPath?: string; // Optional: if we know the careers path
+  maxPages?: number; // Optional: max pages to crawl for pagination (default: 1)
 }
 
 const COMPANIES: CompanyConfig[] = [
@@ -32,7 +33,8 @@ const COMPANIES: CompanyConfig[] = [
     name: "Novo Nordisk", 
     domain: "https://www.novonordisk.com",
     careersPath: "/careers/find-a-job/career-search-results.html?countries=Denmark&pageSize=100",
-    country: "DK"
+    country: "DK",
+    maxPages: 6 // Crawl up to 6 pages to get all ~53 jobs
   },
   { 
     name: "Canon", 
@@ -290,51 +292,71 @@ async function crawlJobs(): Promise<Job[]> {
 
       console.log(`Crawling ${careersUrl}...`);
       
-      const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          url: careersUrl,
-          formats: ["extract", "links"],
-          extract: {
-            prompt: EXTRACTION_PROMPT,
-            schema: EXTRACTION_SCHEMA,
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        console.error(`Failed to crawl ${careersUrl}: ${response.status} ${response.statusText}`);
-        try {
-          const errorText = await response.text();
-          console.error(`Error details: ${errorText}`);
-        } catch (e) {
-          console.error(`Could not read error response`);
-        }
-        continue;
-      }
-
-      let data;
-      try {
-        data = await response.json();
-      } catch (jsonError) {
-        console.error(`Failed to parse JSON response from ${careersUrl}`);
-        const text = await response.text();
-        console.error(`Response was: ${text.substring(0, 200)}...`);
-        continue;
-      }
+      const maxPages = company.maxPages || 1;
+      const companyJobs: Job[] = [];
       
-      console.log(`Response from ${careersUrl}:`, JSON.stringify(data, null, 2));
-      
-      // Extract jobs from response (Firecrawl v1/scrape format)
-      if (data.success && data.data && data.data.extract && data.data.extract.jobs) {
-        // Get links from the page to help construct proper URLs
-        const pageLinks = data.data.links || [];
+      // Crawl multiple pages if configured
+      for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+        let pageUrl = careersUrl;
         
-        const jobs = data.data.extract.jobs
+        // Add page parameter if not first page
+        if (pageNum > 1) {
+          const url = new URL(careersUrl);
+          // Try different pagination patterns
+          url.searchParams.set('page', pageNum.toString());
+          url.searchParams.set('pageNumber', pageNum.toString());
+          url.searchParams.set('p', pageNum.toString());
+          pageUrl = url.toString();
+          console.log(`  Crawling page ${pageNum}: ${pageUrl}`);
+        }
+      
+        const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            url: pageUrl,
+            formats: ["extract", "links"],
+            extract: {
+              prompt: EXTRACTION_PROMPT,
+              schema: EXTRACTION_SCHEMA,
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          console.error(`Failed to crawl ${pageUrl}: ${response.status} ${response.statusText}`);
+          try {
+            const errorText = await response.text();
+            console.error(`Error details: ${errorText}`);
+          } catch (e) {
+            console.error(`Could not read error response`);
+          }
+          // Stop pagination on error
+          break;
+        }
+
+        let data;
+        try {
+          data = await response.json();
+        } catch (jsonError) {
+          console.error(`Failed to parse JSON response from ${pageUrl}`);
+          const text = await response.text();
+          console.error(`Response was: ${text.substring(0, 200)}...`);
+          // Stop pagination on parse error
+          break;
+        }
+        
+        console.log(`Response from ${pageUrl}: Found ${data?.data?.extract?.jobs?.length || 0} jobs`);
+        
+        // Extract jobs from response (Firecrawl v1/scrape format)
+        if (data.success && data.data && data.data.extract && data.data.extract.jobs) {
+          // Get links from the page to help construct proper URLs
+          const pageLinks = data.data.links || [];
+          
+          const pageJobs = data.data.extract.jobs
           .map((job: any) => {
             let jobUrl = careersUrl; // Default to the main careers page
             
@@ -386,10 +408,23 @@ async function crawlJobs(): Promise<Job[]> {
             job.url.startsWith('http')
           );
         
-        allJobs.push(...jobs);
+          companyJobs.push(...pageJobs);
+          console.log(`  Page ${pageNum}: Found ${pageJobs.length} jobs (total for ${company.name}: ${companyJobs.length})`);
+          
+          // Stop if no jobs found on this page (reached end of pagination)
+          if (pageJobs.length === 0) {
+            console.log(`  No jobs found on page ${pageNum}, stopping pagination`);
+            break;
+          }
+        } else {
+          console.log(`  Page ${pageNum}: No jobs found in response`);
+          // Stop if page has no job data
+          break;
+        }
       }
       
-      console.log(`Successfully crawled ${careersUrl}, found ${allJobs.length} jobs so far`);
+      allJobs.push(...companyJobs);
+      console.log(`Successfully crawled ${company.name}, found ${companyJobs.length} jobs`);
     } catch (error) {
       console.error(`Error crawling ${company.name} (${careersUrl}):`, error);
     }
