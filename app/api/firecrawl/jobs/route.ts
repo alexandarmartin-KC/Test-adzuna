@@ -90,24 +90,17 @@ const EXTRACTION_SCHEMA = {
   required: ["jobs"]
 };
 
-// Extraction prompt
-const EXTRACTION_PROMPT = `Extract ALL job postings from this career page. This is CRITICAL - do NOT limit results to first 10 or any arbitrary number.
+// Extraction prompt - keep it simple for better performance
+const EXTRACTION_PROMPT = `Extract ALL job postings from this careers page.
 
-For EVERY single job listing visible on the page, extract:
-- title: the exact job title/position name (REQUIRED)
-- department: department or team if visible
-- location: city/office location if specified
-- country: Denmark for .dk, Sweden for .se, Norway for .no, or extract from job details
-- company: Extract from page or infer from domain
-- url: Direct link to specific job if available
+For each job, extract:
+- title: job title (REQUIRED)
+- location: city or office location
+- country: country code or name
+- department: department if visible
+- url: link to job posting if available
 
-REQUIREMENTS:
-- Extract EVERY job on the page - there may be 50+ jobs, include them ALL
-- Do NOT stop at 10 items - continue until ALL jobs are extracted
-- Only skip jobs explicitly marked as closed/filled/expired
-- If you see 53 jobs on the page, return all 53 jobs
-
-Return JSON with a "jobs" array containing ALL positions found.`;
+Extract ALL jobs visible on the page, not just the first 10.`;
 
 
 /**
@@ -561,8 +554,8 @@ async function crawlJobs(): Promise<Job[]> {
               prompt: EXTRACTION_PROMPT,
               schema: EXTRACTION_SCHEMA,
             },
-            waitFor: 2000,
-            timeout: 60000,
+            waitFor: 5000,  // Wait for JS to render
+            timeout: 90000, // 90 second timeout for large pages
           }),
         });
 
