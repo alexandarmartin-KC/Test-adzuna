@@ -352,14 +352,15 @@ async function scrapeSuccessFactors(careersUrl: string, companyName: string, cou
       
       // Pattern 1: Standard SuccessFactors - /job/Location-Title/ID/
       // Pattern 2: Carlsberg-style - /CarlsbergDK/job/Location-Title/ID/
-      const jobRegex = /href="(\/(?:[^"\/]+\/)?job\/[^"]+)"[^>]*class="jobTitle-link[^"]*"[^>]*>([^<]+)/gi;
+      // Pattern 1: href before class - /job/Location-Title/ID/ or /CarlsbergDK/job/Location-Title/ID/
+      const jobRegex = /href="(\/(?:[^"\/]+\/)?job\/[^"]+)"[^>]*class="jobTitle-link[^"]*"[^>]*>\s*([^<]+)/gi;
       let match;
       
       while ((match = jobRegex.exec(html)) !== null) {
         const jobPath = match[1];
         const title = match[2].trim();
         
-        if (!seenUrls.has(jobPath)) {
+        if (!seenUrls.has(jobPath) && title) {
           seenUrls.add(jobPath);
           
           // Extract location from path: /job/Location-Title/123/ or /CarlsbergDK/job/Location-Title/123/
@@ -377,13 +378,13 @@ async function scrapeSuccessFactors(careersUrl: string, companyName: string, cou
         }
       }
       
-      // Also try alternative pattern with href after class
-      const altRegex = /class="jobTitle-link[^"]*"[^>]*href="(\/(?:[^"\/]+\/)?job\/[^"]+)"[^>]*>([^<]+)/gi;
+      // Pattern 2: class before href (Carlsberg style)
+      const altRegex = /class="jobTitle-link[^"]*"[^>]*href="(\/(?:[^"\/]+\/)?job\/[^"]+)"[^>]*>\s*([^<]+)/gi;
       while ((match = altRegex.exec(html)) !== null) {
         const jobPath = match[1];
         const title = match[2].trim();
         
-        if (!seenUrls.has(jobPath)) {
+        if (!seenUrls.has(jobPath) && title) {
           seenUrls.add(jobPath);
           const pathParts = decodeURIComponent(jobPath).split('/').filter(p => p && p !== 'job' && !p.match(/^Carlsberg/i));
           const location = pathParts[0]?.split('-')[0] || country;
