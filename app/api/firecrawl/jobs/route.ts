@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { COMPANIES, CompanyConfig } from "@/lib/companies";
 
 export const dynamic = 'force-dynamic';
 
 // ============================================================
 // UNIVERSAL JOB CRAWLER
-// Just add company name and careers URL - system handles the rest!
+// Add companies in lib/companies.ts - they appear in UI automatically!
 // ============================================================
 
 interface Job {
@@ -15,22 +16,6 @@ interface Job {
   department?: string;
   url: string;
 }
-
-interface CompanyConfig {
-  name: string;
-  careersUrl: string;
-  country?: string;
-}
-
-// ============================================================
-// ADD YOUR COMPANIES HERE - just name and careers URL!
-// ============================================================
-const COMPANIES: CompanyConfig[] = [
-  { name: "Ørsted", careersUrl: "https://orsted.com/en/careers/vacancies-list" },
-  { name: "Novo Nordisk", careersUrl: "https://careers.novonordisk.com/search/?q=&locationsearch=denmark", country: "DK" },
-  { name: "Matas", careersUrl: "matas.dk", country: "DK" },  // Auto-discovers Emply!
-  // Add more: { name: "Company", careersUrl: "https://..." or just "domain.com" },
-];
 
 // Cache
 let cachedJobs: Job[] | null = null;

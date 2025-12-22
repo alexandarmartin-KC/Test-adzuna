@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface Job {
   title: string;
@@ -16,6 +16,7 @@ interface ApiResponse {
   total: number;
   cached: boolean;
   cacheTimestamp: number;
+  companies?: string[];
 }
 
 export default function FirecrawlPage() {
@@ -23,11 +24,20 @@ export default function FirecrawlPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cacheInfo, setCacheInfo] = useState<string>("");
+  const [availableCompanies, setAvailableCompanies] = useState<string[]>([]);
 
   // Filter states
   const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [countryFilter, setCountryFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+
+  // Fetch available companies on mount
+  useEffect(() => {
+    fetch("/api/firecrawl/jobs/companies")
+      .then(res => res.json())
+      .then(data => setAvailableCompanies(data.companies || []))
+      .catch(() => setAvailableCompanies([]));
+  }, []);
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -131,9 +141,9 @@ export default function FirecrawlPage() {
             }}
           >
             <option value="all">All Companies</option>
-            <option value="orsted">Ørsted</option>
-            <option value="novo nordisk">Novo Nordisk</option>
-            <option value="canon">Canon</option>
+            {availableCompanies.map(company => (
+              <option key={company} value={company.toLowerCase()}>{company}</option>
+            ))}
           </select>
         </div>
 
