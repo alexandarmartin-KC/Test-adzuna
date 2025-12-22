@@ -332,6 +332,8 @@ async function scrapeSuccessFactors(careersUrl: string, companyName: string, cou
         ? `${careersUrl}${careersUrl.includes('?') ? '&' : '?'}startrow=${startRow}`
         : careersUrl;
       
+      console.log(`  [SuccessFactors] Fetching page: ${pageUrl.substring(0, 100)}...`);
+      
       const response = await fetch(pageUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
       });
