@@ -617,10 +617,12 @@ async function crawlJobs(): Promise<Job[]> {
   const apiKey = process.env.FIRECRAWL_API_KEY;
   if (!apiKey) throw new Error("FIRECRAWL_API_KEY not configured");
   
-  // Run all companies in parallel for speed
-  const results = await Promise.all(
-    COMPANIES.map(company => crawlSingleCompany(company, apiKey))
-  );
+  // Run companies sequentially to avoid timeout issues with parallel pagination
+  const results: Job[][] = [];
+  for (const company of COMPANIES) {
+    const jobs = await crawlSingleCompany(company, apiKey);
+    results.push(jobs);
+  }
   
   // Flatten results
   return results.flat();
