@@ -291,6 +291,7 @@ async function crawlJobs(): Promise<Job[]> {
       }
 
       console.log(`Crawling ${careersUrl}...`);
+      console.log(`Max pages configured: ${company.maxPages || 1}`);
       
       const maxPages = company.maxPages || 1;
       const companyJobs: Job[] = [];
@@ -307,8 +308,9 @@ async function crawlJobs(): Promise<Job[]> {
           url.searchParams.set('pageNumber', pageNum.toString());
           url.searchParams.set('p', pageNum.toString());
           pageUrl = url.toString();
-          console.log(`  Crawling page ${pageNum}: ${pageUrl}`);
         }
+        
+        console.log(`  Crawling page ${pageNum}/${maxPages}: ${pageUrl}`);
       
         const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
           method: "POST",
@@ -551,10 +553,18 @@ export async function GET(request: NextRequest) {
 
     // Check if we need to crawl
     if (!cachedJobs || recrawl) {
-      console.log("Initiating Firecrawl job crawl...");
+      const startTime = Date.now();
+      console.log(`\n=== STARTING FIRECRAWL CRAWL (recrawl=${recrawl}) ===`);
       cachedJobs = await crawlJobs();
       cacheTimestamp = Date.now();
-      console.log(`Crawl complete. Total jobs cached: ${cachedJobs.length}`);
+      const duration = ((cacheTimestamp - startTime) / 1000).toFixed(2);
+      console.log(`\n=== CRAWL COMPLETE ===`);
+      console.log(`Total jobs cached: ${cachedJobs.length}`);
+      console.log(`Duration: ${duration}s`);
+      console.log(`Jobs by company:`, cachedJobs.reduce((acc, job) => {
+        acc[job.company] = (acc[job.company] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>));
     }
 
     // Filter jobs based on query parameters
