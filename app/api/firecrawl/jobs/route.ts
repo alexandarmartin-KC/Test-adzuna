@@ -29,6 +29,10 @@ const COMPANIES: CompanyConfig[] = [
     careersPath: "/en/careers/vacancies-list"
   },
   { 
+    name: "Novo Nordisk", 
+    domain: "https://www.novonordisk.com"
+  },
+  { 
     name: "Canon", 
     domain: "https://www.canon.dk",
     country: "DK"
