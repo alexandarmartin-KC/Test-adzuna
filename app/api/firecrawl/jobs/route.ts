@@ -329,7 +329,14 @@ async function scrapeSuccessFactors(careersUrl: string, companyName: string, cou
     const jobs: Job[] = [];
     const seenUrls = new Set<string>();
     
-    // Extract jobs - match href first, then class
+    // Check if this is a JS-rendered SuccessFactors (career2.successfactors.eu style)
+    // These pages don't have job links in HTML - return empty to trigger Firecrawl fallback
+    if (html.includes('career2.successfactors.eu') || html.includes('career_company=')) {
+      console.log(`  [SuccessFactors] JS-rendered external portal - will use Firecrawl`);
+      return []; // Let Firecrawl handle this
+    }
+    
+    // Extract jobs - match href first, then class (works for careers.*.com SuccessFactors)
     const regex = /href="(\/job\/[^"]+)"[^>]*class="jobTitle-link"[^>]*>([^<]+)<\/a>/g;
     let match;
     
@@ -416,38 +423,52 @@ async function scrapeWithFirecrawl(careersUrl: string, companyName: string, coun
       .replace(/[æ]/g, 'ae').replace(/[ø]/g, 'oe').replace(/[å]/g, 'aa')
       .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
     
-    // Filter to job-specific links
+    // Filter to job-specific links (links that look like they go to a specific job posting)
     const jobLinks = pageLinks.filter(link => {
       const l = link.toLowerCase();
       return link.startsWith('http') && (
-        l.includes('/job') || l.includes('/ad/') || l.includes('/vacancy') ||
-        l.includes('/position') || l.includes('/career') ||
-        /\/\d{4,}[-/]/.test(l) || /\/[a-z0-9]{5,8}$/.test(l)
+        l.includes('/job/') || l.includes('/ad/') || l.includes('/vacancy/') ||
+        l.includes('/position/') || l.includes('/requisition') ||
+        /\/\d{5,}(\/|$)/.test(l) || /\/[a-z0-9]{6,12}$/.test(l)
       );
     });
+    
+    console.log(`  [Firecrawl] Found ${pageLinks.length} total links, ${jobLinks.length} job-specific links`);
     
     const jobs: Job[] = [];
     const usedLinks = new Set<string>();
     
     for (const job of extractedJobs) {
-      // Try to find matching URL
-      let jobUrl = job.url || careersUrl;
+      // Start with careers page as fallback - never use URL provided by AI (often hallucinated)
+      let jobUrl = careersUrl;
+      let foundMatch = false;
       
-      if (!jobUrl.includes('/job') && !jobUrl.includes('/ad/') && job.title) {
+      // Only try to match if we have job-specific links AND a title
+      if (jobLinks.length > 0 && job.title) {
         const slug = titleToSlug(job.title);
-        const words = slug.split('-').filter((w: string) => w.length > 2);
+        const words = slug.split('-').filter((w: string) => w.length > 3); // Only meaningful words
         
         for (const link of jobLinks) {
           if (usedLinks.has(link)) continue;
-          const linkSlug = link.toLowerCase().split('/').pop() || '';
+          const linkLower = link.toLowerCase();
+          const linkSlug = linkLower.split('/').pop() || '';
           
-          // Check for match
-          if (linkSlug.includes(slug) || words.filter((w: string) => linkSlug.includes(w)).length >= 2) {
+          // Need high confidence match: either full slug in URL or 2+ significant words
+          const fullMatch = linkSlug.includes(slug);
+          const wordMatches = words.filter((w: string) => linkLower.includes(w)).length;
+          
+          if (fullMatch || wordMatches >= 2) {
             jobUrl = link;
             usedLinks.add(link);
+            foundMatch = true;
             break;
           }
         }
+      }
+      
+      // If AI provided a URL that's in our discovered links, use it
+      if (!foundMatch && job.url && pageLinks.includes(job.url)) {
+        jobUrl = job.url;
       }
       
       jobs.push({
@@ -460,7 +481,10 @@ async function scrapeWithFirecrawl(careersUrl: string, companyName: string, coun
       });
     }
     
-    console.log(`  [Firecrawl] Found ${jobs.length} jobs`);
+    // Log how many jobs got matched URLs vs fallback
+    const matchedCount = jobs.filter(j => j.url !== careersUrl).length;
+    console.log(`  [Firecrawl] Found ${jobs.length} jobs (${matchedCount} with direct URLs, ${jobs.length - matchedCount} link to search page)`);
+    return jobs;
     return jobs;
   } catch (error) {
     console.error(`  [Firecrawl] Error:`, error);
