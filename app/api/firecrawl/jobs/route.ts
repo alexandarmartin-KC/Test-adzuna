@@ -587,40 +587,68 @@ async function crawlJobs(): Promise<Job[]> {
         // Extract jobs from response (Firecrawl v1/scrape format)
         if (data.success && data.data && data.data.extract && data.data.extract.jobs) {
           // Get links from the page to help construct proper URLs
-          const pageLinks = data.data.links || [];
+          const pageLinks: string[] = data.data.links || [];
+          
+          // Helper to convert title to URL slug for matching
+          const titleToSlug = (title: string): string => {
+            return title
+              .toLowerCase()
+              .replace(/[æ]/g, 'ae')
+              .replace(/[ø]/g, 'oe')
+              .replace(/[å]/g, 'aa')
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-+|-+$/g, '');
+          };
+          
+          // Helper to check if a URL is a job-specific link
+          const isJobLink = (url: string): boolean => {
+            const lower = url.toLowerCase();
+            return (
+              lower.includes('/job/') ||
+              lower.includes('/jobs/') ||
+              lower.includes('jobid') ||
+              lower.includes('/vacancy') ||
+              lower.includes('/vacancies-list/20') || // Ørsted format: /vacancies-list/YYYY/MM/ID
+              lower.includes('/position') ||
+              lower.includes('/career/') ||
+              /\/\d{4,}[-/]/.test(lower) // Job ID pattern like /12345- or /2025/
+            );
+          };
+          
+          // Filter page links to only job-specific links
+          const jobLinks = pageLinks.filter((link: string) => 
+            link.startsWith('http') && 
+            link !== careersUrl &&
+            isJobLink(link)
+          );
+          
+          console.log(`  Found ${jobLinks.length} job links on page`);
           
           const pageJobs = data.data.extract.jobs
           .map((job: any) => {
             let jobUrl = careersUrl; // Default to the main careers page
             
-            // Try to get a specific job URL if provided and valid
+            // 1. First, try the URL from extraction if it's valid
             if (job.url && job.url.startsWith('http') && !job.url.includes('example.com')) {
-              // Check if it's a job-specific link (contains job ID or similar)
-              const urlLower = job.url.toLowerCase();
-              if (urlLower.includes('/job/') || 
-                  urlLower.includes('jobid') || 
-                  urlLower.includes('vacancy') ||
-                  urlLower.includes('position')) {
+              if (isJobLink(job.url)) {
                 jobUrl = job.url;
               }
             }
             
-            // If still using base URL, try to find a specific job link from page links
-            if (jobUrl === careersUrl && pageLinks.length > 0) {
-              // Look for job-specific links that aren't just the base careers page
-              const specificLink = pageLinks.find((link: string) => {
-                const linkLower = link.toLowerCase();
-                return link.startsWith('http') && 
-                       link !== careersUrl &&
-                       (linkLower.includes('/job/') || 
-                        linkLower.includes('jobid') || 
-                        linkLower.includes('vacancy') ||
-                        linkLower.includes('position') ||
-                        linkLower.includes('openings'));
+            // 2. If still using base URL, match job title to links
+            if (jobUrl === careersUrl && jobLinks.length > 0 && job.title) {
+              const titleSlug = titleToSlug(job.title);
+              
+              // Find a link that contains the job title slug
+              const matchedLink = jobLinks.find((link: string) => {
+                const linkSlug = link.toLowerCase().split('/').pop() || '';
+                // Check if title slug is contained in the link
+                return linkSlug.includes(titleSlug) || 
+                       titleSlug.split('-').filter(w => w.length > 3).some(word => linkSlug.includes(word));
               });
               
-              if (specificLink) {
-                jobUrl = specificLink;
+              if (matchedLink) {
+                jobUrl = matchedLink;
               }
             }
             
@@ -656,20 +684,23 @@ async function crawlJobs(): Promise<Job[]> {
         }
       }
       
-      // Deduplicate jobs using hybrid approach:
-      // - Use URL as primary key if it's a specific job URL (not just careers page)
-      // - Fall back to title+location if URL is generic (allows multiple jobs with same title/location)
+      // Deduplicate jobs using URL as primary key
+      // Only jobs with unique URLs are kept (each job should have a unique URL)
       const uniqueJobs = Array.from(
         new Map(
           companyJobs.map(job => {
-            // Check if this is a specific job URL
-            const isSpecificUrl = job.url !== careersUrl && 
-              (job.url.toLowerCase().includes('/job/') ||
-               job.url.toLowerCase().includes('jobid') ||
-               job.url.toLowerCase().includes('vacancy') ||
-               job.url.toLowerCase().includes('position'));
+            // Check if this is a specific job URL (not just the careers page)
+            const isSpecificUrl = job.url !== careersUrl && (
+              job.url.toLowerCase().includes('/job/') ||
+              job.url.toLowerCase().includes('/jobs/') ||
+              job.url.toLowerCase().includes('jobid') ||
+              job.url.toLowerCase().includes('/vacancy') ||
+              job.url.toLowerCase().includes('/vacancies-list/20') || // Ørsted format
+              job.url.toLowerCase().includes('/position') ||
+              /\/\d{4,}[-/]/.test(job.url.toLowerCase()) // Job ID pattern
+            );
             
-            // Use URL if specific, otherwise use title+location to allow duplicates
+            // Use URL as key if it's specific, otherwise use title+location
             const key = isSpecificUrl 
               ? job.url 
               : `${job.company}-${job.title}-${job.location}`.toLowerCase();
