@@ -618,7 +618,9 @@ async function crawlJobs(): Promise<Job[]> {
               lower.includes('/vacancies-list/20') || // Ørsted format: /vacancies-list/YYYY/MM/ID
               lower.includes('/position') ||
               lower.includes('/career/') ||
-              /\/\d{4,}[-/]/.test(lower) // Job ID pattern like /12345- or /2025/
+              lower.includes('/ad/') || // Emply platform format: /ad/job-title/id
+              /\/\d{4,}[-/]/.test(lower) || // Job ID pattern like /12345- or /2025/
+              /\/[a-z0-9]{5,8}$/.test(lower) // Short ID at end like /u38f2a (Emply)
             );
           };
           
@@ -724,7 +726,9 @@ async function crawlJobs(): Promise<Job[]> {
               job.url.toLowerCase().includes('/vacancy') ||
               job.url.toLowerCase().includes('/vacancies-list/20') || // Ørsted format
               job.url.toLowerCase().includes('/position') ||
-              /\/\d{4,}[-/]/.test(job.url.toLowerCase()) // Job ID pattern
+              job.url.toLowerCase().includes('/ad/') || // Emply platform
+              /\/\d{4,}[-/]/.test(job.url.toLowerCase()) || // Job ID pattern
+              /\/[a-z0-9]{5,8}$/.test(job.url.toLowerCase()) // Short ID (Emply)
             );
             
             // Use URL as key if it's specific, otherwise use title+location
