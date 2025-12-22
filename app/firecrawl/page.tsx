@@ -118,6 +118,7 @@ export default function FirecrawlPage() {
           >
             <option value="all">All Companies</option>
             <option value="orsted">Ørsted</option>
+            <option value="novo nordisk">Novo Nordisk</option>
             <option value="canon">Canon</option>
           </select>
         </div>
