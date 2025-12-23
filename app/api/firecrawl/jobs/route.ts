@@ -1151,7 +1151,7 @@ export async function GET(request: NextRequest) {
       console.log(`\n========== DONE: ${cachedJobs.length} jobs in ${((Date.now() - start) / 1000).toFixed(1)}s ==========`);
     } else {
       console.log(`\n========== USING CACHED DATA ==========`);
-      console.log(`Cache age: ${((Date.now() - cacheTimestamp) / 1000 / 60).toFixed(1)} minutes`);
+      console.log(`Cache age: ${cacheTimestamp ? ((Date.now() - cacheTimestamp) / 1000 / 60).toFixed(1) : 'unknown'} minutes`);
       console.log(`Total cached jobs: ${cachedJobs.length}`);
     }
     
