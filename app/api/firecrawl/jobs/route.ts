@@ -29,7 +29,10 @@ interface Job {
 // Cache
 let cachedJobs: Job[] | null = null;
 let cacheTimestamp: number | null = null;
-const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes cache (reduced for testing)
+const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes cache
+
+// Force cache clear on new deployment
+const DEPLOYMENT_ID = "2025-12-23-v5"; // Change this to force cache clear
 
 // Firecrawl config
 const EXTRACTION_SCHEMA = {
@@ -1138,11 +1141,18 @@ export async function GET(request: NextRequest) {
       if (cacheExpired) {
         console.log(`\n========== CACHE EXPIRED - RECRAWLING ==========`);
       }
+      if (recrawl) {
+        console.log(`\n========== MANUAL RECRAWL TRIGGERED ==========`);
+      }
       console.log(`\n========== CRAWLING JOBS ==========`);
       const start = Date.now();
       cachedJobs = await crawlJobs();
       cacheTimestamp = Date.now();
       console.log(`\n========== DONE: ${cachedJobs.length} jobs in ${((Date.now() - start) / 1000).toFixed(1)}s ==========`);
+    } else {
+      console.log(`\n========== USING CACHED DATA ==========`);
+      console.log(`Cache age: ${((Date.now() - cacheTimestamp) / 1000 / 60).toFixed(1)} minutes`);
+      console.log(`Total cached jobs: ${cachedJobs.length}`);
     }
     
     const filtered = filterJobs(cachedJobs, { company, country, q });
