@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import PersonalityWizard from "@/app/components/PersonalityWizard";
 import PersonalityVisualization from "@/app/components/PersonalityVisualization";
-import CombinedProfileSection from "@/app/components/CombinedProfileSection";
+import CombinedProfileSection, { ReflectionNotes } from "@/app/components/CombinedProfileSection";
 import DeepPersonalityInsights from "@/app/components/DeepPersonalityInsights";
 import { computePersonalityScores, PersonalityScores, PersonalityLevels } from "@/lib/personalityScoring";
 
@@ -64,6 +64,9 @@ export default function CVAnalysisPage() {
   const [deepInsights, setDeepInsights] = useState<PersonalityNarrativeResult | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsError, setInsightsError] = useState<string | null>(null);
+
+  // Reflection notes state
+  const [reflectionNotes, setReflectionNotes] = useState<ReflectionNotes | null>(null);
 
   const handleAnalyze = async () => {
     if (!cvText.trim()) {
@@ -700,8 +703,12 @@ export default function CVAnalysisPage() {
             personalityScores={personalityScores}
             personalityLevels={personalityLevels}
             freeText={personalityFreeText}
+            followUps={followUps}
             onGenerateComplete={() => {
               // Optional: handle completion if needed
+            }}
+            onReflectionUpdate={(notes) => {
+              setReflectionNotes(notes);
             }}
           />
         </>
