@@ -101,14 +101,14 @@ Extract:
 2. SOFT SKILLS: Communication, leadership, problem-solving, etc. (only if clearly supported by the CV)
 3. SUMMARY: 2-3 sentence professional profile
 
-Return JSON only:
+You must respond with valid JSON in this exact format:
 {
-  "hard_skills": ["skill1", "skill2", ...],
-  "soft_skills": ["skill1", "skill2", ...],
+  "hard_skills": ["skill1", "skill2"],
+  "soft_skills": ["skill1", "skill2"],
   "summary": "Professional summary here"
 }`;
 
-  const userPrompt = `Analyze this CV and extract skills and summary:\n\n${cvText}`;
+  const userPrompt = `Analyze this CV and extract skills and summary. Return only valid JSON:\n\n${cvText}`;
 
   if (provider === "anthropic") {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -149,22 +149,30 @@ Return JSON only:
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
         temperature: 0.3,
-        response_format: { type: "json_object" },
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+      const errorData = await response.text();
+      throw new Error(`OpenAI API error: ${response.status} - ${errorData}`);
     }
 
     const data = await response.json();
-    return JSON.parse(data.choices[0].message.content);
+    const content = data.choices[0].message.content;
+    
+    // Extract JSON from response
+    const jsonMatch = content.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/) || content.match(/(\{[\s\S]*\})/);
+    if (!jsonMatch) {
+      throw new Error("Could not parse CV analysis response");
+    }
+    
+    return JSON.parse(jsonMatch[1]);
   }
 }
 
@@ -189,7 +197,7 @@ For each job that matches the candidate's skills (at least 50% relevance), retur
 - matchScore: 0-100 (how well the job matches)
 - matchReasons: 2-3 bullet points explaining why it matches
 
-Only include jobs with matchScore >= 50. Return JSON array:
+Only include jobs with matchScore >= 50. Return valid JSON array in this exact format:
 [
   {
     "title": "Job Title",
@@ -200,7 +208,9 @@ Only include jobs with matchScore >= 50. Return JSON array:
     "matchScore": 85,
     "matchReasons": ["Reason 1", "Reason 2"]
   }
-]`;
+]
+
+If no jobs match, return empty array: []`;
 
     const userPrompt = `Candidate Profile:
 Hard Skills: ${cvAnalysis.hard_skills.join(", ")}
@@ -208,9 +218,9 @@ Soft Skills: ${cvAnalysis.soft_skills.join(", ")}
 Summary: ${cvAnalysis.summary}
 
 Jobs to match:
-${batch.map((j, idx) => `${idx + 1}. ${j.title} at ${j.company} (${j.location})`).join("\n")}
+${batch.map((j, idx) => `${idx + 1}. ${j.title} at ${j.company} (${j.location}, ${j.country}) - ${j.url}`).join("\n")}
 
-Return matching jobs as JSON array.`;
+Return matching jobs as valid JSON array.`;
 
     try {
       if (provider === "anthropic") {
@@ -248,24 +258,26 @@ Return matching jobs as JSON array.`;
             "Authorization": `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            model: "gpt-4",
+            model: "gpt-4o-mini",
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: userPrompt },
             ],
             temperature: 0.3,
-            response_format: { type: "json_object" },
           }),
         });
 
         if (!response.ok) continue;
 
         const data = await response.json();
-        const matches = JSON.parse(data.choices[0].message.content);
-        if (Array.isArray(matches)) {
-          allMatches.push(...matches);
-        } else if (matches.matches && Array.isArray(matches.matches)) {
-          allMatches.push(...matches.matches);
+        const content = data.choices[0].message.content;
+        
+        const jsonMatch = content.match(/```(?:json)?\s*(\[[\s\S]*\])\s*```/) || content.match(/(\[[\s\S]*\])/);
+        if (jsonMatch) {
+          const matches = JSON.parse(jsonMatch[1]);
+          if (Array.isArray(matches)) {
+            allMatches.push(...matches);
+          }
         }
       }
     } catch (error) {
