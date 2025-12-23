@@ -703,7 +703,7 @@ export default function CVAnalysisPage() {
             personalityScores={personalityScores}
             personalityLevels={personalityLevels}
             freeText={personalityFreeText}
-            followUps={followUps}
+            followUps={followUps ?? undefined}
             onGenerateComplete={() => {
               // Optional: handle completion if needed
             }}
