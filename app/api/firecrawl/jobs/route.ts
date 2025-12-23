@@ -300,7 +300,7 @@ async function scrapeGreenhouse(careersUrl: string, companyName: string, country
     const jobs: Job[] = data.jobs.map((job: any) => {
       // Extract location and determine country
       const locationName = job.location?.name || 'Unknown';
-      let jobCountry = country;
+      let jobCountry = 'Unknown'; // Default to Unknown, not the company's default country
       
       const locLower = locationName.toLowerCase();
       if (locLower.includes('denmark') || locLower.includes('danmark') || 
@@ -324,8 +324,12 @@ async function scrapeGreenhouse(careersUrl: string, companyName: string, country
         jobCountry = 'PL';
       } else if (locLower.includes('spain') || locLower.includes('españa')) {
         jobCountry = 'ES';
-      } else if (locLower.includes('europe')) {
+      } else if (locLower.includes('europe') && !locLower.includes(',')) {
+        // Only set to EU if location is just "Europe", not "United Kingdom, Europe" etc
         jobCountry = 'EU';
+      } else if (country && country !== 'DK') {
+        // Use company default country only if it's explicitly set and not DK (which is the fallback)
+        jobCountry = country;
       }
       
       return {
