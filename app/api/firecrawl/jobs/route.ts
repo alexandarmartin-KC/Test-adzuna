@@ -977,9 +977,9 @@ async function crawlSingleCompany(company: CompanyConfig, apiKey: string): Promi
       case "successfactors":
         const sfJobs = await scrapeSuccessFactors(careersUrl, company.name, country);
         if (sfJobs === null) {
-          // JS-rendered site, fall back to Firecrawl
-          console.log(`  [Fallback] Using Firecrawl for JS-rendered SuccessFactors`);
-          jobs = await scrapeWithFirecrawl(careersUrl, company.name, country, apiKey, platform);
+          // JS-rendered site - skip instead of using Firecrawl (out of credits)
+          console.log(`  [SuccessFactors] JS-rendered - skipping (Firecrawl out of credits)`);
+          jobs = [];
         } else {
           jobs = sfJobs;
         }
@@ -987,9 +987,9 @@ async function crawlSingleCompany(company: CompanyConfig, apiKey: string): Promi
       case "lever":
         const leverJobs = await scrapeLever(careersUrl, company.name, country);
         if (leverJobs === null || leverJobs.length === 0) {
-          // Lever scraper failed, fall back to Firecrawl
-          console.log(`  [Fallback] Lever scraper failed, using Firecrawl`);
-          jobs = await scrapeWithFirecrawl(careersUrl, company.name, country, apiKey, platform);
+          // Lever scraper failed - skip instead of using Firecrawl (out of credits)
+          console.log(`  [Lever] Scraper failed - skipping company (Firecrawl out of credits)`);
+          jobs = [];
         } else {
           jobs = leverJobs;
         }
@@ -1055,18 +1055,20 @@ async function crawlSingleCompany(company: CompanyConfig, apiKey: string): Promi
       case "greenhouse":
         const ghJobs = await scrapeGreenhouse(careersUrl, company.name, country);
         console.log(`  [Greenhouse] Scraper returned ${ghJobs?.length || 0} jobs`);
-        if (ghJobs === null || ghJobs.length === 0) {
-          // Greenhouse scraper failed, fall back to Firecrawl
-          console.log(`  [Fallback] Greenhouse API failed, using Firecrawl`);
-          jobs = await scrapeWithFirecrawl(careersUrl, company.name, country, apiKey, platform);
+        if (ghJobs === null) {
+          // Greenhouse scraper failed completely (API error)
+          console.log(`  [Greenhouse] API error - skipping Firecrawl fallback (out of credits)`);
+          jobs = [];
         } else {
+          // Use Greenhouse results even if 0 jobs (company has no openings)
           jobs = ghJobs;
         }
         break;
       case "unknown":
       default:
-        // Use Firecrawl AI for unknown platforms
-        jobs = await scrapeWithFirecrawl(careersUrl, company.name, country, apiKey, platform);
+        // Skip Firecrawl for unknown platforms (out of credits)
+        console.log(`  [Unknown Platform] Skipping - Firecrawl out of credits`);
+        jobs = [];
     }
     
     // Deduplicate by URL
