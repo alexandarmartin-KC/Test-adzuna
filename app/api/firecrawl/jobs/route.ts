@@ -29,7 +29,7 @@ interface Job {
 // Cache
 let cachedJobs: Job[] | null = null;
 let cacheTimestamp: number | null = null;
-const CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour cache
+const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes cache (reduced for testing)
 
 // Firecrawl config
 const EXTRACTION_SCHEMA = {
@@ -1083,6 +1083,13 @@ async function crawlJobs(): Promise<Job[]> {
   const apiKey = process.env.FIRECRAWL_API_KEY;
   if (!apiKey) throw new Error("FIRECRAWL_API_KEY not configured");
   
+  console.log(`\n========== COMPANIES TO CRAWL ==========`);
+  console.log(`Total companies: ${COMPANIES.length}`);
+  COMPANIES.forEach((c, i) => {
+    console.log(`${i + 1}. ${c.name} - ${c.careersUrl}`);
+  });
+  console.log(`========================================\n`);
+  
   // Run companies sequentially to avoid timeout issues with parallel pagination
   const results: Job[][] = [];
   for (const company of COMPANIES) {
@@ -1139,6 +1146,26 @@ export async function GET(request: NextRequest) {
     }
     
     const filtered = filterJobs(cachedJobs, { company, country, q });
+    
+    console.log(`\n========== FILTER RESULTS ==========`);
+    console.log(`Total jobs in cache: ${cachedJobs.length}`);
+    console.log(`Filters applied: company="${company}", country="${country}", q="${q}"`);
+    console.log(`Filtered results: ${filtered.length}`);
+    
+    if (company) {
+      const companyJobs = cachedJobs.filter(j => j.company.toLowerCase() === company.toLowerCase());
+      console.log(`Jobs matching company "${company}": ${companyJobs.length}`);
+      if (companyJobs.length > 0) {
+        console.log(`Sample: ${companyJobs.slice(0, 3).map(j => `${j.company} | ${j.country} | ${j.location}`).join(', ')}`);
+      }
+    }
+    
+    if (country) {
+      const countryJobs = cachedJobs.filter(j => j.country.toLowerCase() === country.toLowerCase());
+      console.log(`Jobs matching country "${country}": ${countryJobs.length}`);
+    }
+    
+    console.log(`========================================\n`);
     
     return NextResponse.json({
       jobs: filtered,
