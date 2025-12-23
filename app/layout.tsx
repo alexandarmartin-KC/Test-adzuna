@@ -43,6 +43,16 @@ export default function RootLayout({
             CV Analysis
           </Link>
           <Link 
+            href="/job-match" 
+            style={{
+              color: "white",
+              textDecoration: "none",
+              fontSize: "1rem",
+            }}
+          >
+            Job Match
+          </Link>
+          <Link 
             href="/firecrawl" 
             style={{
               color: "white",
