@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PersonalityWizard from "@/app/components/PersonalityWizard";
 import PersonalityVisualization from "@/app/components/PersonalityVisualization";
 import CombinedProfileSection from "@/app/components/CombinedProfileSection";
+import DeepPersonalityInsights from "@/app/components/DeepPersonalityInsights";
 import { computePersonalityScores, PersonalityScores, PersonalityLevels } from "@/lib/personalityScoring";
 
 export type CVAnalysisResult = {
@@ -19,6 +20,20 @@ type JobMatchResult = {
   missing_competencies: string[];
   overall_match_summary: string;
 };
+
+interface DimensionNarrative {
+  title: string;
+  text: string;
+}
+
+interface PersonalityNarrativeResult {
+  structure: DimensionNarrative;
+  collaboration: DimensionNarrative;
+  responsibility: DimensionNarrative;
+  change_learning: DimensionNarrative;
+  resilience: DimensionNarrative;
+  motivation: DimensionNarrative;
+}
 
 export default function CVAnalysisPage() {
   const [cvText, setCvText] = useState("");
@@ -37,6 +52,11 @@ export default function CVAnalysisPage() {
   const [personalityScores, setPersonalityScores] = useState<PersonalityScores | null>(null);
   const [personalityLevels, setPersonalityLevels] = useState<PersonalityLevels | null>(null);
   const [personalityFreeText, setPersonalityFreeText] = useState<Record<string, string>>({});
+  
+  // Deep personality insights state
+  const [deepInsights, setDeepInsights] = useState<PersonalityNarrativeResult | null>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsError, setInsightsError] = useState<string | null>(null);
 
   const handleAnalyze = async () => {
     if (!cvText.trim()) {
@@ -51,6 +71,13 @@ export default function CVAnalysisPage() {
     setMatchResult(null);
     setMatchError(null);
     setJobDescription("");
+    // Reset personality results when analyzing a new CV
+    setPersonalityAnswers({});
+    setPersonalityScores(null);
+    setPersonalityLevels(null);
+    setPersonalityFreeText({});
+    setDeepInsights(null);
+    setInsightsError(null);
 
     try {
       const response = await fetch("/api/cv-analysis", {
@@ -189,6 +216,55 @@ export default function CVAnalysisPage() {
       setMatchError(err.message || "An error occurred during job match analysis");
     } finally {
       setIsMatchLoading(false);
+    }
+  };
+
+  // Auto-fetch deep insights when personality scores are computed
+  useEffect(() => {
+    if (personalityScores && personalityLevels && !deepInsights && !insightsLoading) {
+      fetchDeepInsights();
+    }
+  }, [personalityScores, personalityLevels]);
+
+  const fetchDeepInsights = async () => {
+    if (!personalityScores || !personalityLevels) return;
+
+    setInsightsLoading(true);
+    setInsightsError(null);
+
+    try {
+      const response = await fetch("/api/career-advisor/personality-narrative", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          personality: {
+            scores: personalityScores,
+            levels: personalityLevels,
+            free_text: personalityFreeText,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        let errorMessage = "Failed to generate deep insights";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          errorMessage = `Server error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      setDeepInsights(data);
+    } catch (err: any) {
+      console.error("Deep insights error:", err);
+      setInsightsError(err.message || "An error occurred generating deep insights");
+    } finally {
+      setInsightsLoading(false);
     }
   };
 
@@ -556,6 +632,65 @@ export default function CVAnalysisPage() {
       {result && personalityScores && personalityLevels && (
         <>
           <PersonalityVisualization scores={personalityScores} levels={personalityLevels} />
+
+          {/* Deep Personality Insights Section */}
+          {insightsLoading && (
+            <div
+              style={{
+                marginTop: "40px",
+                padding: "40px",
+                textAlign: "center",
+                backgroundColor: "#f5f5f5",
+                borderRadius: "8px",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "18px",
+                  color: "#666",
+                  marginBottom: "10px",
+                }}
+              >
+                🧠 Generating deeper insights...
+              </div>
+              <div style={{ fontSize: "14px", color: "#999" }}>
+                Creating a comprehensive coaching-style analysis of your personality profile
+              </div>
+            </div>
+          )}
+
+          {insightsError && (
+            <div
+              style={{
+                marginTop: "40px",
+                padding: "20px",
+                backgroundColor: "#ffebee",
+                borderRadius: "8px",
+                color: "#c62828",
+              }}
+            >
+              <strong>Error generating deep insights:</strong> {insightsError}
+              <button
+                onClick={fetchDeepInsights}
+                style={{
+                  marginLeft: "10px",
+                  padding: "8px 16px",
+                  fontSize: "14px",
+                  backgroundColor: "#d32f2f",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {deepInsights && !insightsLoading && (
+            <DeepPersonalityInsights narratives={deepInsights} />
+          )}
 
           {/* Combined Profile Section */}
           <CombinedProfileSection
