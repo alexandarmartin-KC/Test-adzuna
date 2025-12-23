@@ -1093,12 +1093,39 @@ async function crawlJobs(): Promise<Job[]> {
   });
   console.log(`========================================\n`);
   
-  // Run companies sequentially to avoid timeout issues with parallel pagination
+  const startTime = Date.now();
+  const timeoutMs = 50000; // 50 seconds (leave 10s buffer for Vercel)
+  
+  // Run companies sequentially with timeout protection
   const results: Job[][] = [];
-  for (const company of COMPANIES) {
-    const jobs = await crawlSingleCompany(company, apiKey);
-    results.push(jobs);
+  for (let i = 0; i < COMPANIES.length; i++) {
+    const elapsed = Date.now() - startTime;
+    if (elapsed > timeoutMs) {
+      console.warn(`⚠️  TIMEOUT: Stopping after ${i} companies (${(elapsed / 1000).toFixed(1)}s elapsed)`);
+      break;
+    }
+    
+    const company = COMPANIES[i];
+    console.log(`\n[${i + 1}/${COMPANIES.length}] Crawling ${company.name}...`);
+    const companyStart = Date.now();
+    
+    try {
+      const jobs = await crawlSingleCompany(company, apiKey);
+      const companyTime = ((Date.now() - companyStart) / 1000).toFixed(1);
+      console.log(`✅ ${company.name}: ${jobs.length} jobs in ${companyTime}s`);
+      results.push(jobs);
+    } catch (error) {
+      const companyTime = ((Date.now() - companyStart) / 1000).toFixed(1);
+      console.error(`❌ ${company.name}: Error after ${companyTime}s -`, error);
+      results.push([]); // Add empty array to maintain order
+    }
   }
+  
+  const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log(`\n========== CRAWL COMPLETE ==========`);
+  console.log(`Companies crawled: ${results.length}/${COMPANIES.length}`);
+  console.log(`Total time: ${totalTime}s`);
+  console.log(`========================================\n`);
   
   // Flatten results
   return results.flat();

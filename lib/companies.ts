@@ -11,16 +11,23 @@ export interface CompanyConfig {
 
 // ============================================================
 // ADD YOUR COMPANIES HERE - just name and careers URL!
+// Priority order: Fast scrapers first to avoid timeouts
 // ============================================================
 export const COMPANIES: CompanyConfig[] = [
-  { name: "Ørsted", careersUrl: "https://orsted.com/en/careers/vacancies-list" },
-  { name: "Novo Nordisk", careersUrl: "https://careers.novonordisk.com/search/?q=&locationsearch=denmark", country: "DK" },
-  { name: "Matas", careersUrl: "matas.dk", country: "DK" },  // Auto-discovers Emply!
+  // Fast scrapers (APIs, no pagination) - crawl first
+  { name: "CoreWeave Europe", careersUrl: "https://boards.greenhouse.io/coreweaveu" },  // Greenhouse API (EU jobs) - FAST
+  { name: "CoreWeave", careersUrl: "https://boards.greenhouse.io/coreweave" },  // Greenhouse API (US jobs) - FAST
+  { name: "Matas", careersUrl: "matas.dk", country: "DK" },  // Emply API - FAST
+  { name: "Arla", careersUrl: "https://jobs.arla.com/", country: "DK" },  // Lever API - FAST
+  
+  // Medium speed scrapers
+  { name: "Novo Nordisk", careersUrl: "https://careers.novonordisk.com/search/?q=&locationsearch=denmark", country: "DK" },  // SuccessFactors with pagination
   { name: "Carlsberg", careersUrl: "https://careers.carlsberg.com/CarlsbergDK/search/?q=&locale=en_GB", country: "DK" },  // SuccessFactors with pagination
-  { name: "Arla", careersUrl: "https://jobs.arla.com/", country: "DK" },  // Lever platform
-  { name: "LEGO", careersUrl: "https://lego.wd3.myworkdayjobs.com/LEGO_Careers", country: "DK" },  // Workday JSON API
-  { name: "CoreWeave", careersUrl: "https://boards.greenhouse.io/coreweave" },  // Greenhouse platform (US jobs)
-  { name: "CoreWeave Europe", careersUrl: "https://boards.greenhouse.io/coreweaveu" },  // Greenhouse platform (EU jobs)
+  
+  // Slow/complex scrapers - may timeout on Hobby plan
+  { name: "LEGO", careersUrl: "https://lego.wd3.myworkdayjobs.com/LEGO_Careers", country: "DK" },  // Workday - SLOW/BLOCKED
+  { name: "Ørsted", careersUrl: "https://orsted.com/en/careers/vacancies-list" },  // Unknown platform - SLOW
+  
   // Add more: { name: "Company", careersUrl: "https://..." or just "domain.com" },
 ];
 
