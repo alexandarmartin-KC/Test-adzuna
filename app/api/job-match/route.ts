@@ -1,16 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getJobsForMatching, Job } from "@/lib/jobsCache";
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Allow up to 60 seconds for matching
-
-type Job = {
-  title: string;
-  company: string;
-  country: string;
-  location: string;
-  url: string;
-  department?: string;
-};
 
 type JobMatch = {
   title: string;
@@ -44,32 +36,10 @@ export async function POST(request: NextRequest) {
     const cvAnalysis = await analyzeCV(cvText);
     console.log(`[Job Match] Found ${cvAnalysis.hard_skills.length} hard skills, ${cvAnalysis.soft_skills.length} soft skills`);
 
-    // Step 2: Fetch all jobs
-    console.log("[Job Match] Fetching jobs from crawler...");
-    
-    // Use absolute URL with proper protocol
-    const protocol = process.env.VERCEL_URL ? 'https://' : 'http://';
-    const host = process.env.VERCEL_URL || request.headers.get('host') || 'localhost:3000';
-    const jobsUrl = `${protocol}${host}/api/firecrawl/jobs`;
-    
-    console.log(`[Job Match] Fetching from: ${jobsUrl}`);
-    
-    const jobsResponse = await fetch(jobsUrl, {
-      headers: { 
-        'User-Agent': 'Job-Matcher/1.0',
-        'Accept': 'application/json'
-      }
-    });
-    
-    if (!jobsResponse.ok) {
-      const errorText = await jobsResponse.text();
-      console.error(`[Job Match] Jobs API error: ${jobsResponse.status} - ${errorText}`);
-      throw new Error(`Failed to fetch jobs: ${jobsResponse.status} - ${errorText}`);
-    }
-
-    const jobsData = await jobsResponse.json();
-    const jobs: Job[] = jobsData.jobs || [];
-    console.log(`[Job Match] Scanning ${jobs.length} jobs...`);
+    // Step 2: Get jobs directly (no HTTP call needed)
+    console.log("[Job Match] Fetching jobs...");
+    const jobs = await getJobsForMatching();
+    console.log(`[Job Match] Got ${jobs.length} jobs to scan`);
 
     // Step 3: Match jobs using AI
     const matches = await matchJobs(cvAnalysis, jobs);
