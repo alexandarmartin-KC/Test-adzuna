@@ -171,6 +171,11 @@ export default function FirecrawlPage() {
             <option value="dk">Denmark (DK)</option>
             <option value="se">Sweden (SE)</option>
             <option value="no">Norway (NO)</option>
+            <option value="gb">United Kingdom (GB)</option>
+            <option value="ie">Ireland (IE)</option>
+            <option value="pl">Poland (PL)</option>
+            <option value="es">Spain (ES)</option>
+            <option value="eu">Europe (EU)</option>
           </select>
         </div>
 
