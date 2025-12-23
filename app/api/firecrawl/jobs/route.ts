@@ -936,7 +936,8 @@ async function crawlSingleCompany(company: CompanyConfig, apiKey: string): Promi
   console.log(`\n=== ${company.name} ===`);
   console.log(`Input URL: ${company.careersUrl}`);
   
-  const country = company.country || 'DK';
+  const country = company.country || 'Unknown'; // Default to Unknown instead of DK
+  console.log(`Default country: ${country}`);
   
   try {
     // Auto-discover careers page if needed
@@ -1050,6 +1051,7 @@ async function crawlSingleCompany(company: CompanyConfig, apiKey: string): Promi
         break;
       case "greenhouse":
         const ghJobs = await scrapeGreenhouse(careersUrl, company.name, country);
+        console.log(`  [Greenhouse] Scraper returned ${ghJobs?.length || 0} jobs`);
         if (ghJobs === null || ghJobs.length === 0) {
           // Greenhouse scraper failed, fall back to Firecrawl
           console.log(`  [Fallback] Greenhouse API failed, using Firecrawl`);
