@@ -29,6 +29,7 @@ interface Job {
 // Cache
 let cachedJobs: Job[] | null = null;
 let cacheTimestamp: number | null = null;
+const CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour cache
 
 // Firecrawl config
 const EXTRACTION_SCHEMA = {
@@ -1121,7 +1122,13 @@ export async function GET(request: NextRequest) {
     const q = params.get("q") || undefined;
     const recrawl = params.get("recrawl") === "true";
     
-    if (!cachedJobs || recrawl) {
+    // Check if cache is expired
+    const cacheExpired = cacheTimestamp && (Date.now() - cacheTimestamp) > CACHE_DURATION_MS;
+    
+    if (!cachedJobs || recrawl || cacheExpired) {
+      if (cacheExpired) {
+        console.log(`\n========== CACHE EXPIRED - RECRAWLING ==========`);
+      }
       console.log(`\n========== CRAWLING JOBS ==========`);
       const start = Date.now();
       cachedJobs = await crawlJobs();

@@ -106,8 +106,8 @@ export default function FirecrawlPage() {
         )}
       </div>
       <p style={{ color: "#666", marginBottom: "2rem" }}>
-        Search jobs from Ørsted and Canon career pages. Data is crawled once and cached
-        for performance. Use filters to narrow down results.
+        Search jobs from multiple companies including CoreWeave, LEGO, Novo Nordisk, and more. 
+        Data is cached for 1 hour. Click <strong>🔄 Recrawl</strong> below to fetch latest jobs.
       </p>
 
       {/* Filters */}
