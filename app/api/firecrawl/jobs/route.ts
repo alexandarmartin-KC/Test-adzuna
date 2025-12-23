@@ -258,6 +258,96 @@ function detectPlatform(url: string, html?: string): Platform {
 
 
 // ============================================================
+// GREENHOUSE SCRAPER - Uses their public API, 0 credits!
+// ============================================================
+
+async function scrapeGreenhouse(careersUrl: string, companyName: string, country: string): Promise<Job[] | null> {
+  console.log(`  [Greenhouse] Scraping ${companyName}...`);
+  
+  try {
+    // Extract board ID from URL
+    // Format: https://boards.greenhouse.io/[boardId] or https://boards-api.greenhouse.io/v1/boards/[boardId]/jobs
+    const boardMatch = careersUrl.match(/greenhouse\.io\/([^\/\?]+)/);
+    if (!boardMatch) {
+      console.log(`  [Greenhouse] Could not extract board ID from URL`);
+      return null;
+    }
+    
+    const boardId = boardMatch[1];
+    const apiUrl = `https://boards-api.greenhouse.io/v1/boards/${boardId}/jobs?content=false`;
+    
+    console.log(`  [Greenhouse] Fetching from API: ${apiUrl}`);
+    
+    const response = await fetch(apiUrl, {
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      console.log(`  [Greenhouse] API returned ${response.status}`);
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    if (!data.jobs || !Array.isArray(data.jobs)) {
+      console.log(`  [Greenhouse] No jobs array in response`);
+      return null;
+    }
+    
+    const jobs: Job[] = data.jobs.map((job: any) => {
+      // Extract location and determine country
+      const locationName = job.location?.name || 'Unknown';
+      let jobCountry = country;
+      
+      const locLower = locationName.toLowerCase();
+      if (locLower.includes('denmark') || locLower.includes('danmark') || 
+          locLower.includes('copenhagen') || locLower.includes('skovlunde') || 
+          locLower.includes('aarhus')) {
+        jobCountry = 'DK';
+      } else if (locLower.includes('sweden') || locLower.includes('sverige') || 
+                 locLower.includes('stockholm') || locLower.includes('gothenburg')) {
+        jobCountry = 'SE';
+      } else if (locLower.includes('norway') || locLower.includes('norge') || 
+                 locLower.includes('oslo') || locLower.includes('porsgrunn') || 
+                 locLower.includes('ovrebo')) {
+        jobCountry = 'NO';
+      } else if (locLower.includes('united kingdom') || locLower.includes('london') || 
+                 locLower.includes('england')) {
+        jobCountry = 'GB';
+      } else if (locLower.includes('ireland') || locLower.includes('dublin')) {
+        jobCountry = 'IE';
+      } else if (locLower.includes('poland') || locLower.includes('warsaw') || 
+                 locLower.includes('warszawa')) {
+        jobCountry = 'PL';
+      } else if (locLower.includes('spain') || locLower.includes('españa')) {
+        jobCountry = 'ES';
+      } else if (locLower.includes('europe')) {
+        jobCountry = 'EU';
+      }
+      
+      return {
+        title: job.title || 'Unknown',
+        company: companyName,
+        country: jobCountry,
+        location: locationName,
+        department: job.departments && job.departments.length > 0 ? job.departments[0].name : undefined,
+        url: job.absolute_url || `https://boards.greenhouse.io/embed/job_app?token=${job.id}`
+      };
+    });
+    
+    console.log(`  [Greenhouse] Found ${jobs.length} jobs (FREE - 0 credits)`);
+    return jobs;
+  } catch (error) {
+    console.error(`  [Greenhouse] Error:`, error);
+    return null;
+  }
+}
+
+
+// ============================================================
 // EMPLY SCRAPER (Matas, etc.) - Uses their API, 0 credits!
 // ============================================================
 
@@ -954,6 +1044,15 @@ async function crawlSingleCompany(company: CompanyConfig, apiKey: string): Promi
         }
         break;
       case "greenhouse":
+        const ghJobs = await scrapeGreenhouse(careersUrl, company.name, country);
+        if (ghJobs === null || ghJobs.length === 0) {
+          // Greenhouse scraper failed, fall back to Firecrawl
+          console.log(`  [Fallback] Greenhouse API failed, using Firecrawl`);
+          jobs = await scrapeWithFirecrawl(careersUrl, company.name, country, apiKey, platform);
+        } else {
+          jobs = ghJobs;
+        }
+        break;
       case "unknown":
       default:
         // Use Firecrawl AI for unknown platforms
