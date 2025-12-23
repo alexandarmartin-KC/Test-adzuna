@@ -90,6 +90,17 @@ async function discoverCareersPage(inputUrl: string): Promise<string> {
   const urlObj = new URL(baseUrl);
   const origin = urlObj.origin;
   const pathLower = urlObj.pathname.toLowerCase();
+  const urlLower = baseUrl.toLowerCase();
+  
+  // Skip discovery for known career platforms - use URL directly
+  if (urlLower.includes('greenhouse.io') || 
+      urlLower.includes('lever.co') ||
+      urlLower.includes('myworkdayjobs.com') ||
+      urlLower.includes('successfactors') ||
+      urlLower.includes('emply.com')) {
+    console.log(`  [Discovery] Known platform detected, using URL directly: ${baseUrl}`);
+    return baseUrl;
+  }
   
   // If URL already looks like a careers page OR is a jobs subdomain, use it directly
   if (CAREERS_KEYWORDS.some(kw => pathLower.includes(kw)) || 
