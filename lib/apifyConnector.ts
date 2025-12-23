@@ -82,13 +82,13 @@ export async function scrapeWorkdayWithApify(
       return [];
     }
     
-    const result = items[0];
+    const result = items[0] as any;
     console.log(`[Apify] Found ${result.jobCount} jobs`);
     
-    return result.jobs || [];
+    return (result.jobs || []) as any[];
     
   } catch (error) {
-    console.error(`[Apify] Error:`, error.message);
+    console.error(`[Apify] Error:`, (error as any).message);
     return [];
   }
 }
@@ -125,8 +125,8 @@ export async function scrapeWorkdayWithContentCrawler(
     const run = await client.actor('apify/website-content-crawler').call(input);
     const { items } = await client.dataset(run.defaultDatasetId).listItems();
     
-    if (items && items.length > 0) {
-      const content = items[0];
+    if (items && (items as any[]).length > 0) {
+      const content = (items as any[])[0] as any;
       console.log(`[Apify] Got page content, length: ${content.text?.length || 0}`);
       
       // Parse jobs from text content (simple extraction)
@@ -139,7 +139,7 @@ export async function scrapeWorkdayWithContentCrawler(
     return [];
     
   } catch (error) {
-    console.error(`[Apify Content Crawler] Error:`, error.message);
+    console.error(`[Apify Content Crawler] Error:`, (error as any).message);
     return [];
   }
 }
@@ -191,7 +191,7 @@ export async function testApifyConnection(apiKey: string): Promise<{
   } catch (error) {
     return {
       success: false,
-      error: error.message
+      error: (error as any).message
     };
   }
 }

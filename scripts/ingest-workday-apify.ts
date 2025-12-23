@@ -102,7 +102,7 @@ async function ingestCompany(companyId: string): Promise<IngestionMetrics> {
       } catch (error) {
         console.error(`Failed to normalize job:`, error);
         metrics.itemsFailed++;
-        metrics.errors.push(error.message);
+        metrics.errors.push((error as any).message || String(error));
       }
     }
     
@@ -130,7 +130,7 @@ async function ingestCompany(companyId: string): Promise<IngestionMetrics> {
     
   } catch (error) {
     console.error(`\n❌ Ingestion failed:`, error);
-    metrics.errors.push(error.message);
+    metrics.errors.push((error as any).message || String(error));
     throw error;
   } finally {
     metrics.durationMs = Date.now() - startTime;
@@ -219,7 +219,7 @@ async function main() {
           dkCount: 0,
           byCountry: {},
           durationMs: 0,
-          errors: [error.message],
+          errors: [(error as any).message || String(error)],
         });
       }
     }

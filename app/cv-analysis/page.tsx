@@ -1,8 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import PersonalityWizard from "@/app/components/PersonalityWizard";
+import PersonalityVisualization from "@/app/components/PersonalityVisualization";
+import CombinedProfileSection from "@/app/components/CombinedProfileSection";
+import { computePersonalityScores, PersonalityScores, PersonalityLevels } from "@/lib/personalityScoring";
 
-type CVAnalysisResult = {
+export type CVAnalysisResult = {
   hard_skills: string[];
   soft_skills: string[];
   summary: string;
@@ -27,6 +31,12 @@ export default function CVAnalysisPage() {
   const [isMatchLoading, setIsMatchLoading] = useState(false);
   const [matchResult, setMatchResult] = useState<JobMatchResult | null>(null);
   const [matchError, setMatchError] = useState<string | null>(null);
+
+  // Personality profile state
+  const [personalityAnswers, setPersonalityAnswers] = useState<Record<number, number>>({});
+  const [personalityScores, setPersonalityScores] = useState<PersonalityScores | null>(null);
+  const [personalityLevels, setPersonalityLevels] = useState<PersonalityLevels | null>(null);
+  const [personalityFreeText, setPersonalityFreeText] = useState<Record<string, string>>({});
 
   const handleAnalyze = async () => {
     if (!cvText.trim()) {
@@ -508,6 +518,56 @@ export default function CVAnalysisPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Personality Profile Section - Only show after CV analysis completes */}
+      {result && !personalityScores && (
+        <PersonalityWizard
+          onComplete={(answers: Record<number, number>) => {
+            setPersonalityAnswers(answers);
+            
+            // Extract free text answers
+            const freeText: Record<string, string> = {};
+            for (let i = 1; i <= 8; i++) {
+              const key = `ft${i}`;
+              freeText[key] = (answers as any)[key] || "";
+            }
+            setPersonalityFreeText(freeText);
+
+            // Compute scores
+            const likertAnswers: Record<number, number> = {};
+            for (let i = 1; i <= 36; i++) {
+              likertAnswers[i] = answers[i];
+            }
+            
+            try {
+              const { scores, levels } = computePersonalityScores(likertAnswers);
+              setPersonalityScores(scores);
+              setPersonalityLevels(levels);
+            } catch (err: any) {
+              console.error("Error computing personality scores:", err);
+              alert("Error processing personality answers: " + err.message);
+            }
+          }}
+        />
+      )}
+
+      {/* Personality Visualization Section - Show after personality quiz completes */}
+      {result && personalityScores && personalityLevels && (
+        <>
+          <PersonalityVisualization scores={personalityScores} levels={personalityLevels} />
+
+          {/* Combined Profile Section */}
+          <CombinedProfileSection
+            cvProfile={result}
+            personalityScores={personalityScores}
+            personalityLevels={personalityLevels}
+            freeText={personalityFreeText}
+            onGenerateComplete={() => {
+              // Optional: handle completion if needed
+            }}
+          />
+        </>
       )}
     </div>
   );

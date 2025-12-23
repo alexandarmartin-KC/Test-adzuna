@@ -17,9 +17,9 @@ async function smokeTest() {
   console.log('\n[TEST] Ingesting LEGO jobs...');
   
   const input = {
-    startUrls: [{ url: 'https://lego.wd3.myworkdayjobs.com/LEGO_Careers' }],
-    maxItems: 10, // Small test batch
-    proxyConfiguration: {
+     start_url: 'https://lego.wd3.myworkdayjobs.com/LEGO_Careers',
+     max_items: 10, // Small test batch
+     proxy_configuration: {
       useApifyProxy: true,
     },
   };
