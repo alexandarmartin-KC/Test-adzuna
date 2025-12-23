@@ -12,6 +12,9 @@ export type CVAnalysisResult = {
 };
 
 interface CombinedProfileResult {
+  how_you_work_paragraph: string;
+  what_you_delivered_paragraph: string;
+  nuance_paragraph: string;
   strengths: string[];
   watchouts: string[];
   preferred_environments: string[];
@@ -103,7 +106,7 @@ export default function CombinedProfileSection({
         },
       };
 
-      const response = await fetch("/api/career-advisor/combined-profile", {
+      const response = await fetch("/api/career-advisor/combined-profile-v2", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -222,8 +225,7 @@ export default function CombinedProfileSection({
               fontSize: "15px",
             }}
           >
-            {/* Extract working style from combined_summary or create derived content */}
-            {result.combined_summary.split('.').slice(0, 3).join('.') + '.'}
+            {result.how_you_work_paragraph}
           </div>
         </section>
 
@@ -248,7 +250,7 @@ export default function CombinedProfileSection({
               fontSize: "15px",
             }}
           >
-            {cvProfile.summary}
+            {result.what_you_delivered_paragraph}
           </div>
         </section>
 
@@ -273,8 +275,7 @@ export default function CombinedProfileSection({
               fontSize: "15px",
             }}
           >
-            {/* Extract nuance from combined_summary - use middle portion */}
-            {result.combined_summary.split('.').slice(3, 5).join('.') + '.'}
+            {result.nuance_paragraph}
           </div>
         </section>
 
