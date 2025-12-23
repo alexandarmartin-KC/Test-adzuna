@@ -133,6 +133,7 @@ async function analyzeWithAnthropic(personality: PersonalityProfile): Promise<Pe
 You will receive a personality/work-style profile consisting of:
 - six dimension scores (0–100) and levels (Low/Medium/High)
 - optional free-text answers about preferences, energy, and goals
+ - optional semi-adaptive follow-up answers (short text) selected based on extremes or inconsistency
 
 Your job is to write a deep, practical, coaching-style interpretation of each of the six dimensions.
 Write in a tone that feels supportive and insightful, like a good career coach.
@@ -219,6 +220,7 @@ async function analyzeWithOpenAI(personality: PersonalityProfile): Promise<Perso
 You will receive a personality/work-style profile consisting of:
 - six dimension scores (0–100) and levels (Low/Medium/High)
 - optional free-text answers about preferences, energy, and goals
+ - optional semi-adaptive follow-up answers (short text) selected based on extremes or inconsistency
 
 Your job is to write a deep, practical, coaching-style interpretation of each of the six dimensions.
 Write in a tone that feels supportive and insightful, like a good career coach.

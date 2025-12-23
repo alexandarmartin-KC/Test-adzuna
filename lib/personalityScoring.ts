@@ -64,6 +64,62 @@ const QUESTION_DIMENSIONS: Record<number, PersonalityDimension> = {
 };
 
 /**
+ * Compute per-dimension adjusted answers (after reverse scoring) from raw Likert responses
+ */
+export function computeAdjustedDimensionAnswers(answers: Record<number, number>): Record<PersonalityDimension, number[]> {
+  const dimensionAnswers: Record<PersonalityDimension, number[]> = {
+    structure: [],
+    collaboration: [],
+    responsibility: [],
+    change_learning: [],
+    resilience: [],
+    motivation: [],
+  };
+
+  for (let questionNum = 1; questionNum <= 36; questionNum++) {
+    let answer = answers[questionNum];
+    if (answer === undefined) {
+      throw new Error(`Missing answer for question ${questionNum}`);
+    }
+    if (answer < 1 || answer > 5) {
+      throw new Error(`Invalid answer for question ${questionNum}: ${answer} (must be 1-5)`);
+    }
+    if (REVERSE_SCORED_QUESTIONS.has(questionNum)) {
+      answer = 6 - answer;
+    }
+    const dimension = QUESTION_DIMENSIONS[questionNum];
+    dimensionAnswers[dimension].push(answer);
+  }
+
+  return dimensionAnswers;
+}
+
+/**
+ * Compute per-dimension variance on adjusted 1..5 answers
+ */
+export function computeDimensionVariance(answers: Record<number, number>): Record<PersonalityDimension, number> {
+  const dims = computeAdjustedDimensionAnswers(answers);
+  const variance: Record<PersonalityDimension, number> = {
+    structure: 0,
+    collaboration: 0,
+    responsibility: 0,
+    change_learning: 0,
+    resilience: 0,
+    motivation: 0,
+  };
+
+  (Object.keys(dims) as PersonalityDimension[]).forEach((dim) => {
+    const arr = dims[dim];
+    const n = arr.length || 1;
+    const mean = arr.reduce((a, b) => a + b, 0) / n;
+    const varVal = arr.reduce((sum, x) => sum + (x - mean) * (x - mean), 0) / n;
+    variance[dim] = Number(varVal.toFixed(3));
+  });
+
+  return variance;
+}
+
+/**
  * Get the level category for a percentage score
  * 0-39: Low, 40-69: Medium, 70-100: High
  */

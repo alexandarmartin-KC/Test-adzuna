@@ -35,6 +35,12 @@ interface PersonalityNarrativeResult {
   motivation: DimensionNarrative;
 }
 
+interface FollowUpsData {
+  selected_dimensions: string[];
+  answers: Record<string, string>;
+  questions: Record<string, { dimension: string; text: string; reason: "extreme_low" | "extreme_high" | "inconsistent" }>;
+}
+
 export default function CVAnalysisPage() {
   const [cvText, setCvText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -52,6 +58,7 @@ export default function CVAnalysisPage() {
   const [personalityScores, setPersonalityScores] = useState<PersonalityScores | null>(null);
   const [personalityLevels, setPersonalityLevels] = useState<PersonalityLevels | null>(null);
   const [personalityFreeText, setPersonalityFreeText] = useState<Record<string, string>>({});
+  const [followUps, setFollowUps] = useState<FollowUpsData | null>(null);
   
   // Deep personality insights state
   const [deepInsights, setDeepInsights] = useState<PersonalityNarrativeResult | null>(null);
@@ -243,6 +250,7 @@ export default function CVAnalysisPage() {
             scores: personalityScores,
             levels: personalityLevels,
             free_text: personalityFreeText,
+            follow_ups: followUps || undefined,
           },
         }),
       });
@@ -599,23 +607,17 @@ export default function CVAnalysisPage() {
       {/* Personality Profile Section - Only show after CV analysis completes */}
       {result && !personalityScores && (
         <PersonalityWizard
-          onComplete={(answers: Record<number, number>) => {
+          onComplete={(answers: Record<number, number>, fu: FollowUpsData, freeText: Record<string, string>) => {
             setPersonalityAnswers(answers);
-            
-            // Extract free text answers
-            const freeText: Record<string, string> = {};
-            for (let i = 1; i <= 8; i++) {
-              const key = `ft${i}`;
-              freeText[key] = (answers as any)[key] || "";
-            }
             setPersonalityFreeText(freeText);
+            setFollowUps(fu);
 
             // Compute scores
             const likertAnswers: Record<number, number> = {};
             for (let i = 1; i <= 36; i++) {
               likertAnswers[i] = answers[i];
             }
-            
+
             try {
               const { scores, levels } = computePersonalityScores(likertAnswers);
               setPersonalityScores(scores);

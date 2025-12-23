@@ -23,6 +23,11 @@ interface CombinedProfileProps {
   personalityScores: PersonalityScores;
   personalityLevels: PersonalityLevels;
   freeText: Record<string, string>;
+  followUps?: {
+    selected_dimensions: string[];
+    answers: Record<string, string>;
+    questions: Record<string, { dimension: string; text: string; reason: "extreme_low" | "extreme_high" | "inconsistent" }>;
+  };
   onGenerateComplete: (result: CombinedProfileResult) => void;
 }
 
@@ -31,6 +36,7 @@ export default function CombinedProfileSection({
   personalityScores,
   personalityLevels,
   freeText,
+  followUps,
   onGenerateComplete,
 }: CombinedProfileProps) {
   const [isLoading, setIsLoading] = useState(false);
@@ -49,6 +55,7 @@ export default function CombinedProfileSection({
           scores: personalityScores,
           levels: personalityLevels,
           free_text: freeText,
+          follow_ups: followUps,
         },
       };
 

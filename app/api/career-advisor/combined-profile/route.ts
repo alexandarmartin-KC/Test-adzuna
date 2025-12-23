@@ -174,7 +174,8 @@ You receive:
 1) A structured CV profile (hard skills, soft skills, summary, and two career path texts).
 2) A personality/work-style profile consisting of:
    - six dimension scores (0–100) and levels (Low/Medium/High)
-   - optional free-text answers about preferences, energy, and goals.
+  - optional free-text answers about preferences, energy, and goals.
+  - optional semi-adaptive follow-up answers (short text) selected based on extremes or inconsistency.
 
 Your tasks:
 - Combine the CV profile and personality profile to produce a holistic, job-market-relevant view of the person.

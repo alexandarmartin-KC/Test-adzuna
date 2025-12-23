@@ -1,9 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { computePersonalityScores, computeDimensionVariance, PersonalityDimension } from "@/lib/personalityScoring";
+
+interface FollowUpsData {
+  selected_dimensions: string[];
+  answers: Record<string, string>;
+  questions: Record<string, { dimension: string; text: string; reason: "extreme_low" | "extreme_high" | "inconsistent" }>;
+}
 
 interface PersonalityWizardProps {
-  onComplete: (answers: Record<number, number>) => void;
+  onComplete: (answers: Record<number, number>, followUps: FollowUpsData, freeText: Record<string, string>) => void;
 }
 
 const QUESTIONS = [
@@ -284,7 +291,21 @@ const SECTIONS = [
 export default function PersonalityWizard({ onComplete }: PersonalityWizardProps) {
   const [currentSection, setCurrentSection] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [isShowingFollowUps, setIsShowingFollowUps] = useState(false);
   const [isShowingFreeText, setIsShowingFreeText] = useState(false);
+  const wizardTopRef = useRef<HTMLDivElement | null>(null);
+
+  // Smooth scroll to top of wizard on section change/step change
+  useEffect(() => {
+    if (wizardTopRef.current) {
+      wizardTopRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      // Also ensure any internal scroll container resets
+      const container = wizardTopRef.current.parentElement;
+      if (container && container.scrollTop) {
+        container.scrollTop = 0;
+      }
+    }
+  }, [currentSection, isShowingFollowUps, isShowingFreeText]);
 
   const section = SECTIONS[currentSection];
   const sectionQuestions = QUESTIONS.filter(
@@ -313,7 +334,8 @@ export default function PersonalityWizard({ onComplete }: PersonalityWizardProps
     if (currentSection < SECTIONS.length - 1) {
       setCurrentSection(currentSection + 1);
     } else {
-      setIsShowingFreeText(true);
+      // After base sections, show adaptive follow-ups step
+      setIsShowingFollowUps(true);
     }
   };
 
@@ -323,12 +345,178 @@ export default function PersonalityWizard({ onComplete }: PersonalityWizardProps
     }
   };
 
+  // -------------------- Adaptive Follow-ups --------------------
+
+  type Reason = "extreme_low" | "extreme_high" | "inconsistent";
+
+  const FOLLOW_UP_BANK: Record<
+    PersonalityDimension,
+    { low: Array<{ id: string; text: string }>; high: Array<{ id: string; text: string }> }
+  > = {
+    structure: {
+      low: [
+        { id: "S1", text: "When things are unstructured, how do you usually keep track of what matters most?" },
+        { id: "S2", text: "What helps you avoid details slipping through when priorities shift quickly?" },
+        { id: "S3", text: "Do you prefer having a simple system (checklists/weekly review), or keeping it flexible day-to-day?" },
+      ],
+      high: [
+        { id: "S4", text: "How do you typically react when plans change suddenly at the last minute?" },
+        { id: "S5", text: "What do you do when others work less structured than you prefer?" },
+        { id: "S6", text: "Where do you draw the line between being thorough and being slowed down by details?" },
+      ],
+    },
+    collaboration: {
+      low: [
+        { id: "C1", text: "In teamwork, what kind of interaction feels useful to you — and what feels like too much?" },
+        { id: "C2", text: "How do you prefer to communicate progress when you’ve been working independently?" },
+        { id: "C3", text: "What types of collaboration do you actually enjoy (e.g., problem-solving, planning, social)?" },
+      ],
+      high: [
+        { id: "C4", text: "What kinds of team dynamics bring out your best work?" },
+        { id: "C5", text: "How do you handle situations where collaboration slows down execution?" },
+        { id: "C6", text: "When conflict appears, what role do you naturally take in the group?" },
+      ],
+    },
+    responsibility: {
+      low: [
+        { id: "R1", text: "What makes a role satisfying for you if you don’t have formal ownership?" },
+        { id: "R2", text: "In what situations do you prefer others to make decisions?" },
+        { id: "R3", text: "What level of autonomy feels comfortable to you?" },
+      ],
+      high: [
+        { id: "R4", text: "How do you set boundaries so ownership doesn’t turn into overload?" },
+        { id: "R5", text: "What kind of decision-making authority do you need to feel truly responsible?" },
+        { id: "R6", text: "How do you handle it when you’re accountable but can’t influence key decisions?" },
+      ],
+    },
+    change_learning: {
+      low: [
+        { id: "L1", text: "What type of change feels most draining for you — and why?" },
+        { id: "L2", text: "What helps you feel safe and effective when new systems or processes are introduced?" },
+        { id: "L3", text: "How do you prefer to learn something new: hands-on, reading, mentoring, or structured training?" },
+      ],
+      high: [
+        { id: "L4", text: "How do you keep focus when there are many new opportunities and ideas?" },
+        { id: "L5", text: "What kind of learning excites you most: tools/skills, people/leadership, or domain expertise?" },
+        { id: "L6", text: "When you learn fast, how do you help others keep up without frustration?" },
+      ],
+    },
+    resilience: {
+      low: [
+        { id: "E1", text: "What early signals tell you that you’re close to overload?" },
+        { id: "E2", text: "What helps you recover after a stressful period at work?" },
+        { id: "E3", text: "What types of pressure affect you most: time pressure, conflict, uncertainty, or volume?" },
+      ],
+      high: [
+        { id: "E4", text: "What helps you stay calm when others are stressed or reactive?" },
+        { id: "E5", text: "How do you prevent taking on too much just because you can handle pressure?" },
+        { id: "E6", text: "What conditions need to be present for you to perform well under high pressure?" },
+      ],
+    },
+    motivation: {
+      low: [
+        { id: "M1", text: "What makes work feel meaningful for you personally?" },
+        { id: "M2", text: "Which trade-off is hardest for you: salary vs meaning, stability vs growth, flexibility vs structure?" },
+        { id: "M3", text: "What kind of recognition matters most to you?" },
+      ],
+      high: [
+        { id: "M4", text: "What kind of impact feels most motivating to you: helping people, building products, improving systems, leading others?" },
+        { id: "M5", text: "What conditions make you feel you’re growing in a role?" },
+        { id: "M6", text: "What’s a sign that you’re in the right job — after 3 months?" },
+      ],
+    },
+  };
+
+  const [followUpQuestions, setFollowUpQuestions] = useState<FollowUpsData["questions"]>({});
+  const [followUpAnswers, setFollowUpAnswers] = useState<Record<string, string>>({});
+
+  const selectFollowUps = () => {
+    // Compute base scores and variance
+    const { scores } = computePersonalityScores(answers);
+    const variance = computeDimensionVariance(answers);
+
+    const extremeLowThresh = 25;
+    const extremeHighThresh = 75;
+    const inconsistentThresh = 1.2;
+
+    type PickItem = { dim: PersonalityDimension; reason: Reason };
+    const picks: PickItem[] = [];
+
+    (Object.keys(scores) as PersonalityDimension[]).forEach((dim) => {
+      const pct = scores[dim];
+      if (pct <= extremeLowThresh) picks.push({ dim, reason: "extreme_low" });
+      else if (pct >= extremeHighThresh) picks.push({ dim, reason: "extreme_high" });
+    });
+
+    if (picks.length === 0) {
+      // Select top 1–2 by variance if no extremes
+      const entries = (Object.entries(variance) as Array<[PersonalityDimension, number]>).sort(
+        (a, b) => b[1] - a[1]
+      );
+      const top = entries.filter(([, v]) => v >= inconsistentThresh).slice(0, 2);
+      top.forEach(([dim]) => picks.push({ dim, reason: "inconsistent" }));
+      if (picks.length === 0 && entries.length > 0) {
+        // If still none meet threshold, pick the single highest variance
+        const [dim] = entries[0];
+        picks.push({ dim, reason: "inconsistent" });
+      }
+    }
+
+    // Decide total number of follow-ups: 4–6
+    const totalDesired = picks.length >= 2 ? 6 : 4;
+
+    const selectedQuestions: FollowUpsData["questions"] = {};
+    const selectedDimensions: string[] = [];
+
+    const perDimCount = picks.length >= 2 ? Math.ceil(totalDesired / picks.length) : totalDesired;
+
+    picks.forEach(({ dim, reason }) => {
+      selectedDimensions.push(dim);
+      const scorePct = scores[dim];
+      const setKey = scorePct <= extremeLowThresh ? "low" : scorePct >= extremeHighThresh ? "high" : (reason === "inconsistent" ? (scorePct < 50 ? "low" : "high") : "low");
+      const bank = FOLLOW_UP_BANK[dim][setKey];
+      bank.slice(0, perDimCount).forEach((q) => {
+        selectedQuestions[q.id] = { dimension: dim, text: q.text, reason };
+      });
+    });
+
+    setFollowUpQuestions(selectedQuestions);
+  };
+
+  useEffect(() => {
+    if (isShowingFollowUps) {
+      selectFollowUps();
+    }
+  }, [isShowingFollowUps]);
+
+  const handleFollowUpAnswer = (id: string, value: string) => {
+    setFollowUpAnswers((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const [freeText, setFreeText] = useState<Record<string, string>>({
+    ft1: "",
+    ft2: "",
+    ft3: "",
+    ft4: "",
+    ft5: "",
+    ft6: "",
+    ft7: "",
+    ft8: "",
+  });
+
   const handleCompleteWizard = () => {
-    onComplete(answers);
+    const followUps: FollowUpsData = {
+      selected_dimensions: Array.from(
+        new Set(Object.values(followUpQuestions).map((q) => q.dimension))
+      ),
+      answers: followUpAnswers,
+      questions: followUpQuestions,
+    };
+    onComplete(answers, followUps, freeText);
   };
 
   return (
-    <div style={{ marginTop: "40px", borderTop: "2px solid #ddd", paddingTop: "30px" }}>
+    <div ref={wizardTopRef} style={{ marginTop: "40px", borderTop: "2px solid #ddd", paddingTop: "30px" }}>
       <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", marginBottom: "10px" }}>
         Personality & Work-Style Profile
       </h2>
@@ -337,7 +525,7 @@ export default function PersonalityWizard({ onComplete }: PersonalityWizardProps
         This will be combined with your CV for a complete profile.
       </p>
 
-      {!isShowingFreeText && (
+      {!isShowingFollowUps && !isShowingFreeText && (
         <div>
           {/* Progress indicator */}
           <div style={{ marginBottom: "30px" }}>
@@ -447,7 +635,79 @@ export default function PersonalityWizard({ onComplete }: PersonalityWizardProps
                 fontSize: "16px",
               }}
             >
-              {currentSection === SECTIONS.length - 1 ? "Next (Free Text) →" : "Next →"}
+              {currentSection === SECTIONS.length - 1 ? "Next (Follow-ups) →" : "Next →"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Adaptive Follow-ups Step */}
+      {isShowingFollowUps && !isShowingFreeText && (
+        <div>
+          <div style={{ marginBottom: "20px" }}>
+            <h3 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "8px" }}>Adaptive Follow-ups</h3>
+            <p style={{ fontSize: "14px", color: "#666" }}>
+              A few follow-up questions based on your earlier answers. These help us understand your work style more deeply.
+            </p>
+          </div>
+
+          {Object.entries(followUpQuestions).map(([id, meta], idx) => (
+            <div key={id} style={{ marginBottom: "20px" }}>
+              <label style={{ display: "block", marginBottom: "6px", fontWeight: 500 }}>
+                {idx + 1}. {meta.text}
+                <span style={{ fontSize: "12px", color: "#999", marginLeft: "8px" }}>({meta.dimension}, {meta.reason.replace("_", " ")})</span>
+              </label>
+              <textarea
+                value={followUpAnswers[id] || ""}
+                onChange={(e) => handleFollowUpAnswer(id, e.target.value)}
+                rows={3}
+                placeholder="Your short answer (1–3 sentences)"
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  border: "1px solid #ddd",
+                  borderRadius: "4px",
+                  fontFamily: "inherit",
+                  fontSize: "14px",
+                  lineHeight: 1.5,
+                  resize: "vertical",
+                }}
+              />
+            </div>
+          ))}
+
+          {/* Navigation */}
+          <div style={{ display: "flex", gap: "12px", justifyContent: "space-between", marginTop: "10px" }}>
+            <button
+              onClick={() => setIsShowingFollowUps(false)}
+              style={{
+                padding: "12px 24px",
+                backgroundColor: "#f0f0f0",
+                color: "#333",
+                border: "1px solid #ddd",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontWeight: "500",
+                fontSize: "16px",
+              }}
+            >
+              ← Back
+            </button>
+
+            <button
+              onClick={() => setIsShowingFreeText(true)}
+              style={{
+                padding: "12px 24px",
+                backgroundColor: "#0070f3",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontWeight: "500",
+                fontSize: "16px",
+              }}
+            >
+              Next (Free Text) →
             </button>
           </div>
         </div>
@@ -456,7 +716,10 @@ export default function PersonalityWizard({ onComplete }: PersonalityWizardProps
       {isShowingFreeText && (
         <FreeTextQuestions
           answers={answers}
-          onComplete={handleCompleteWizard}
+          onComplete={(ft) => {
+            setFreeText(ft);
+            handleCompleteWizard();
+          }}
           onBack={() => setIsShowingFreeText(false)}
         />
       )}
@@ -466,7 +729,7 @@ export default function PersonalityWizard({ onComplete }: PersonalityWizardProps
 
 interface FreeTextQuestionsProps {
   answers: Record<number, number>;
-  onComplete: () => void;
+  onComplete: (freeText: Record<string, string>) => void;
   onBack: () => void;
 }
 
@@ -504,12 +767,7 @@ function FreeTextQuestions({ answers, onComplete, onBack }: FreeTextQuestionsPro
   };
 
   const handleSubmit = () => {
-    // Store free text answers in the answers object (with keys like "ft1", "ft2", etc.)
-    const finalAnswers = { ...answers };
-    Object.entries(freeText).forEach(([key, value]) => {
-      (finalAnswers as any)[key] = value;
-    });
-    onComplete();
+    onComplete(freeText);
   };
 
   return (
