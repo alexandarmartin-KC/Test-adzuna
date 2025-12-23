@@ -19,6 +19,7 @@ export const COMPANIES: CompanyConfig[] = [
   { name: "Carlsberg", careersUrl: "https://careers.carlsberg.com/CarlsbergDK/search/?q=&locale=en_GB", country: "DK" },  // SuccessFactors with pagination
   { name: "Arla", careersUrl: "https://jobs.arla.com/", country: "DK" },  // Lever platform
   { name: "LEGO", careersUrl: "https://lego.wd3.myworkdayjobs.com/LEGO_Careers", country: "DK" },  // Workday JSON API
+  { name: "CoreWeave", careersUrl: "https://boards.greenhouse.io/coreweave" },  // Greenhouse platform
   // Add more: { name: "Company", careersUrl: "https://..." or just "domain.com" },
 ];
 
