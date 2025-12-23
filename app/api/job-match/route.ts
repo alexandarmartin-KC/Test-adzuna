@@ -46,16 +46,25 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Fetch all jobs
     console.log("[Job Match] Fetching jobs from crawler...");
-    const baseUrl = process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : 'http://localhost:3000';
     
-    const jobsResponse = await fetch(`${baseUrl}/api/firecrawl/jobs`, {
-      headers: { 'User-Agent': 'Job-Matcher/1.0' }
+    // Use absolute URL with proper protocol
+    const protocol = process.env.VERCEL_URL ? 'https://' : 'http://';
+    const host = process.env.VERCEL_URL || request.headers.get('host') || 'localhost:3000';
+    const jobsUrl = `${protocol}${host}/api/firecrawl/jobs`;
+    
+    console.log(`[Job Match] Fetching from: ${jobsUrl}`);
+    
+    const jobsResponse = await fetch(jobsUrl, {
+      headers: { 
+        'User-Agent': 'Job-Matcher/1.0',
+        'Accept': 'application/json'
+      }
     });
     
     if (!jobsResponse.ok) {
-      throw new Error(`Failed to fetch jobs: ${jobsResponse.status}`);
+      const errorText = await jobsResponse.text();
+      console.error(`[Job Match] Jobs API error: ${jobsResponse.status} - ${errorText}`);
+      throw new Error(`Failed to fetch jobs: ${jobsResponse.status} - ${errorText}`);
     }
 
     const jobsData = await jobsResponse.json();
